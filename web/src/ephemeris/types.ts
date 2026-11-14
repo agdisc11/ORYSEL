@@ -1,8 +1,8 @@
-/** Shared data contract between the ephemeris engine and the screens. */
+/** Shared data contract between the ephemeris engine, AWS telemetry, and the screens. */
 
 export type Body = 'sun' | 'earth'
 
-export type UserProfileMode = 'professional' | 'educational' | 'kids'
+export type UserProfileMode = 'executive' | 'professional' | 'educational' | 'kids'
 
 export interface SpaceEnginePreset {
   sceneName: string

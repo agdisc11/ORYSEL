@@ -7,10 +7,10 @@ interface RocketVectorPlaygroundProps {
 }
 
 /**
- * Interactive vector velocity simulator for the Kids / Gamified view:
- * 1) Translates percentage KPI into a binary verdict ("¡SÍ SE PUEDE!" / "NO SE PUEDE").
- * 2) Allows adjusting tangential & radial velocity vectors on the rocket to see if it
- *    lands gently on the Moon, enters stable lunar orbit, or escapes into space.
+ * Exclusive view for the Kids / Gamified segment:
+ * 1) Renders ONLY a giant binary verdict ("¡SÍ SE PUEDE ATERRIZAR!" / "¡NO SE PUEDE, PERDEMOS SEÑAL!")
+ *    instead of percentages.
+ * 2) Provides an interactive 2D vector velocity playground on a lunar rocket.
  */
 export function RocketVectorPlayground({ site, viability }: RocketVectorPlaygroundProps) {
   const vOrbital = viability.kinematics.orbitalVelocityKmS // ~1.68 km/s
@@ -31,21 +31,21 @@ export function RocketVectorPlayground({ site, viability }: RocketVectorPlaygrou
     trajectoryState = 'LANDING'
     trajectoryTitle = '¡ALUNIZAJE SUAVE EN LA LUNA!'
     trajectoryDesc =
-      'Como la flecha de velocidad es menor que la velocidad orbital (1.68 km/s) y activaste el frenado, la gravedad lunar atrae al cohete suavemente hacia la pista.'
+      'Tu flecha de velocidad es menor que 1.68 km/s y encendiste los motores de frenado: la gravedad lunar baja el cohete suavemente hasta la superficie.'
     pathD = 'M 140 85 Q 290 95 415 212'
     pathColor = '#4ce0b3'
   } else if (netSpeed < vEscape) {
     trajectoryState = 'ORBIT'
     trajectoryTitle = '¡EL COHETE ENTRÓ EN ÓRBITA LUNAR!'
     trajectoryDesc =
-      'Tu flecha de velocidad equilibra exactamente la gravedad de la Luna (entre 1.68 y 2.38 km/s). ¡El cohete gira alrededor de la Luna como un satélite!'
+      'Tu flecha de velocidad está entre 1.68 y 2.38 km/s: equilibra la gravedad de la Luna y el cohete queda girando alrededor como un satélite.'
     pathD = 'M 140 85 Q 350 40 540 165'
     pathColor = '#5fa8f5'
   } else {
     trajectoryState = 'ESCAPE'
-    trajectoryTitle = '¡VELOCIDAD DE ESCAPE! SE VA AL ESPACIO'
+    trajectoryTitle = '¡VELOCIDAD DE ESCAPE! SE VA AL ESPACIO PROFUNDO'
     trajectoryDesc =
-      '¡La flecha de velocidad supera los 2.38 km/s! El cohete lleva tanta energía que vence la gravedad de la Luna y se dispara hacia el espacio profundo.'
+      '¡La flecha supera los 2.38 km/s! El cohete vence por completo la gravedad de la Luna y se escapa hacia el espacio exterior.'
     pathD = 'M 140 85 Q 320 65 560 22'
     pathColor = '#f2b53a'
   }
@@ -54,26 +54,29 @@ export function RocketVectorPlayground({ site, viability }: RocketVectorPlaygrou
   const arrowBrakingLen = Math.round(20 + (brakingKmS / 1.5) * 75)
 
   return (
-    <section className="kids-section" aria-label="Modo Infantil y Simulador de Vectores">
+    <section className="kids-section" aria-label="Vista Infantil y Simulador de Vectores">
       <div className={`binary-verdict-banner ${viability.isViable ? 'yes' : 'no'}`}>
+        <span className="pill-badge">VEREDICTO DE MISIÓN PARA EXPLORADORES</span>
         <div className="binary-badge">
-          {viability.isViable ? '¡SÍ SE PUEDE ALUNIZAR!' : '¡NO SE PUEDE ALUNIZAR AQUÍ!'}
+          {viability.isViable
+            ? '¡SÍ SE PUEDE ATERRIZAR!'
+            : '¡NO SE PUEDE, PERDEMOS SEÑAL!'}
         </div>
         <p>
           {viability.isViable
-            ? `En ${site.name} tenemos luz del Sol para recargar el cohete y comunicación directa con la Tierra y con el satélite fotográfico.`
-            : `En ${site.name} las montañas del cráter bloquean la señal de radio con los astronautas y tapan la cámara del satélite. ¡Elige otro sitio!`}
+            ? `En ${site.name} tenemos energía del Sol para nuestras baterías y línea de vista directa con la Tierra y con el satélite fotográfico.`
+            : `En ${site.name} las paredes gigantes del cráter tapan nuestra antena con la Tierra y bloquean la cámara del satélite. ¡Elige Reiner Gamma o IM-2 en la barra superior!`}
         </p>
       </div>
 
       <div className="vector-playground-card">
         <div className="playground-header">
           <div>
-            <span className="pill-badge">LABORATORIO INTERACTIVO · FLECHAS VECTORIALES</span>
-            <h3>¡Controla los Vectores de Velocidad del Cohete!</h3>
+            <span className="pill-badge">SIMULADOR INTERACTIVO DE VECTORES</span>
+            <h3>¡Mueve las Flechas Vectoriales de Velocidad del Cohete!</h3>
             <p className="muted">
-              Mueve las flechas para cambiar la velocidad del cohete y descubre si aterriza en la
-              Luna, se queda en órbita o se escapa al espacio.
+              Cambia el tamaño de las flechas para descubrir cuándo el cohete aterriza en la Luna,
+              cuándo entra en órbita y cuándo se escapa al espacio.
             </p>
           </div>
           <div className="preset-buttons">
@@ -85,7 +88,7 @@ export function RocketVectorPlayground({ site, viability }: RocketVectorPlaygrou
                 setBrakingKmS(0.6)
               }}
             >
-              Modo Alunizaje
+              1. Aterrizar
             </button>
             <button
               type="button"
@@ -95,7 +98,7 @@ export function RocketVectorPlayground({ site, viability }: RocketVectorPlaygrou
                 setBrakingKmS(0.2)
               }}
             >
-              Modo Órbita
+              2. Entrar en Órbita
             </button>
             <button
               type="button"
@@ -105,7 +108,7 @@ export function RocketVectorPlayground({ site, viability }: RocketVectorPlaygrou
                 setBrakingKmS(0.1)
               }}
             >
-              Modo Escape
+              3. Escapar al Espacio
             </button>
           </div>
         </div>
@@ -141,34 +144,32 @@ export function RocketVectorPlayground({ site, viability }: RocketVectorPlaygrou
             </marker>
           </defs>
 
-          {/* Stars */}
           <circle cx="60" cy="35" r="1.5" fill="#fff" opacity="0.6" />
           <circle cx="240" cy="25" r="1.5" fill="#fff" opacity="0.5" />
           <circle cx="480" cy="48" r="2" fill="#fff" opacity="0.7" />
           <circle cx="550" cy="95" r="1.5" fill="#fff" opacity="0.4" />
 
-          {/* Moon curved surface */}
           <path
             d="M 0 235 Q 310 175 620 235 L 620 260 L 0 260 Z"
             fill="#283246"
             stroke="#5fa8f5"
             strokeWidth="2"
           />
-          <ellipse cx="415" cy="215" rx="28" ry="7" fill="#18202c" stroke="#4ce0b3" strokeDasharray="4 3" />
+          <ellipse
+            cx="415"
+            cy="215"
+            rx="28"
+            ry="7"
+            fill="#18202c"
+            stroke="#4ce0b3"
+            strokeDasharray="4 3"
+          />
           <text x="415" y="242" textAnchor="middle" fill="#e9ecf1" fontSize="11">
-            Zona {site.name.split(' ')[0]}
+            Pista: {site.name.split(' ')[0]}
           </text>
 
-          {/* Predicted trajectory curve */}
-          <path
-            d={pathD}
-            fill="none"
-            stroke={pathColor}
-            strokeWidth="3.5"
-            strokeDasharray="7 5"
-          />
+          <path d={pathD} fill="none" stroke={pathColor} strokeWidth="3.5" strokeDasharray="7 5" />
 
-          {/* Tangential Velocity Vector Arrow */}
           <line
             x1="140"
             y1="85"
@@ -186,10 +187,9 @@ export function RocketVectorPlayground({ site, viability }: RocketVectorPlaygrou
             fontSize="12"
             fontWeight="bold"
           >
-            Vector Velocidad ({tangentialKmS.toFixed(2)} km/s)
+            Flecha Velocidad ({tangentialKmS.toFixed(2)} km/s)
           </text>
 
-          {/* Vertical Gravity / Descent Vector Arrow */}
           <line
             x1="140"
             y1="85"
@@ -203,9 +203,13 @@ export function RocketVectorPlayground({ site, viability }: RocketVectorPlaygrou
             Descenso ({brakingKmS.toFixed(2)} km/s)
           </text>
 
-          {/* Rocket icon */}
           <g transform="translate(140, 85)">
-            <polygon points="-18,-10 18,0 -18,10 -12,0" fill="#e9ecf1" stroke="#5fa8f5" strokeWidth="2" />
+            <polygon
+              points="-18,-10 18,0 -18,10 -12,0"
+              fill="#e9ecf1"
+              stroke="#5fa8f5"
+              strokeWidth="2"
+            />
             <polygon points="-18,-6 -28,0 -18,6" fill="#ff5f6d" />
           </g>
         </svg>
@@ -213,7 +217,8 @@ export function RocketVectorPlayground({ site, viability }: RocketVectorPlaygrou
         <div className="vector-controls">
           <label className="slider-control">
             <span>
-              Flecha Horizontal (Velocidad de Avance): <strong>{tangentialKmS.toFixed(2)} km/s</strong>
+              Flecha Amarilla (Velocidad Horizontal):{' '}
+              <strong>{tangentialKmS.toFixed(2)} km/s</strong>
             </span>
             <input
               type="range"
@@ -227,7 +232,7 @@ export function RocketVectorPlayground({ site, viability }: RocketVectorPlaygrou
 
           <label className="slider-control">
             <span>
-              Flecha Vertical (Impulso de Descenso): <strong>{brakingKmS.toFixed(2)} km/s</strong>
+              Flecha Verde (Empuje hacia la Luna): <strong>{brakingKmS.toFixed(2)} km/s</strong>
             </span>
             <input
               type="range"

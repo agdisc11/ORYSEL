@@ -1,4 +1,5 @@
 export * from './types.ts'
+export * from './awsApi.ts'
 export { MOON_RADIUS_KM, sitePosition, toSky } from './geometry.ts'
 export { profileHorizon, smoothHorizon } from './events.ts'
 export { createEphemeris, ENGINE, KERNELS, type Ephemeris } from './spice.ts'

@@ -1,0 +1,218 @@
+<html xmlns:o="urn:schemas-microsoft-com:office:office"
+      xmlns:w="urn:schemas-microsoft-com:office:word"
+      xmlns="http://www.w3.org/TR/REC-html40">
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<meta name="ProgId" content="Word.Document">
+<meta name="Generator" content="Microsoft Word 15">
+<meta name="Originator" content="Microsoft Word 15">
+<title>Guion Oficial de Pitch y Demostracion - Equipo ORYSEL (NASA Space Apps 2026)</title>
+<!--[if gte mso 9]>
+<xml>
+ <w:WordDocument>
+  <w:View>Print</w:View>
+  <w:Zoom>100</w:Zoom>
+  <w:DoNotOptimizeForBrowser/>
+ </w:WordDocument>
+</xml>
+<![endif]-->
+<style>
+  @page {
+    size: 21.59cm 27.94cm;
+    margin: 2.0cm 2.0cm 2.0cm 2.0cm;
+  }
+  body {
+    font-family: "Calibri", "Segoe UI", Arial, sans-serif;
+    font-size: 11pt;
+    line-height: 1.45;
+    color: #18202b;
+  }
+  h1 {
+    font-size: 18pt;
+    color: #0d3b66;
+    border-bottom: 2px solid #0d3b66;
+    padding-bottom: 4pt;
+    margin-top: 0;
+    margin-bottom: 8pt;
+  }
+  h2 {
+    font-size: 13.5pt;
+    color: #1d5ba3;
+    margin-top: 16pt;
+    margin-bottom: 6pt;
+  }
+  h3 {
+    font-size: 11.5pt;
+    color: #9a5500;
+    margin-top: 10pt;
+    margin-bottom: 4pt;
+  }
+  p {
+    margin-top: 0;
+    margin-bottom: 6pt;
+  }
+  .meta {
+    font-size: 10pt;
+    color: #566272;
+    margin-bottom: 12pt;
+  }
+  .box-highlight {
+    background-color: #eef5fc;
+    border-left: 4pt solid #1d5ba3;
+    padding: 8pt 12pt;
+    margin: 8pt 0;
+  }
+  .box-speech {
+    background-color: #fff9eb;
+    border-left: 4pt solid #d9822b;
+    padding: 8pt 12pt;
+    margin: 6pt 0 10pt 0;
+  }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 6pt;
+    margin-bottom: 12pt;
+  }
+  th {
+    background-color: #0d3b66;
+    color: #ffffff;
+    font-weight: bold;
+    text-align: left;
+    padding: 6pt 8pt;
+    border: 1pt solid #0d3b66;
+    font-size: 10pt;
+  }
+  td {
+    padding: 6pt 8pt;
+    border: 1pt solid #cdd4dc;
+    vertical-align: top;
+    font-size: 10pt;
+  }
+  ul, ol {
+    margin-top: 4pt;
+    margin-bottom: 8pt;
+  }
+  li {
+    margin-bottom: 4pt;
+  }
+</style>
+</head>
+<body>
+
+<h1>GUION OFICIAL DE PITCH Y DEMOSTRACION · EQUIPO ORYSEL</h1>
+<p class="meta">
+  <b>Evento:</b> NASA Space Apps Challenge 2026 · Sede Tuxtla Gutierrez<br>
+  <b>Reto:</b> Lunar Landing Site Navigator<br>
+  <b>Integrantes:</b> Yael, Agdiel, Hanna, Leonardo y Katia<br>
+  <b>Estructura basada en:</b> Guia oficial <i>ARMA TU PITCH (Spaceport MX)</i> + <i>Quick Talk Space Apps Tuxtla</i>
+</p>
+
+<div class="box-highlight">
+  <b>REGLA DE ORO (SLIDES 2 Y 3 DE "ARMA TU PITCH"):</b><br>
+  El primer enunciado debe explicar la solucion en una sola frase clara y concreta respondiendo:
+  <b>[A quien ayudas] + [Que problema resuelves] + con [Que construiste] + usando [Dato espacial NASA]</b>.
+</div>
+
+<h2>1. EL PRIMER ENUNCIADO DE APERTURA (0:00 a 0:12)</h2>
+<div class="box-speech">
+  <b>Expositor (mirando al jurado, sin formulas ni tablas):</b><br>
+  &laquo;Ayudamos a <b>planificadores de misiones lunares, docentes y estudiantes</b> a <b>saber en segundos si un sitio en la Luna tendra energia solar y comunicacion directa sin puntos ciegos</b>, con <b>ORYSEL, una plataforma web de viabilidad orbital</b>, usando <b>los kernels planetarios SPICE DE440, relieve LOLA/LROC y validacion con JPL Horizons de la NASA</b>.&raquo;
+</div>
+
+<h2>2. GUION CRONOMETRADO POR DIAPOSITIVA (7 SLIDES · ESTRUCTURA "ARMA TU PITCH")</h2>
+
+<table>
+  <thead>
+    <tr>
+      <th style="width:14%;">Slide / Tiempo</th>
+      <th style="width:24%;">Bloque de "ARMA TU PITCH"</th>
+      <th style="width:26%;">Que muestra la Pantalla / Operador</th>
+      <th style="width:36%;">Que dice exactamente el Expositor</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><b>Slide 1</b><br>0:00 - 0:15<br>(15 s)</td>
+      <td><b>Portada y Primer Enunciado</b><br>(Objetivo en 1 frase)</td>
+      <td>Slide 1 de la presentacion y vista limpia de la cabecera de ORYSEL (<code>App.tsx</code>).</td>
+      <td>&laquo;Buenas tardes, somos el equipo ORYSEL. Ayudamos a planificadores de misiones, docentes y estudiantes a decidir donde y cuando alunizar sin perder energia ni comunicacion, con nuestra app web ORYSEL, usando efemerides SPICE DE440 y datos LROC de la NASA.&raquo;</td>
+    </tr>
+    <tr>
+      <td><b>Slide 2</b><br>0:15 - 0:45<br>(30 s)</td>
+      <td><b>01 · Problema y Usuario</b><br>(Situacion concreta y decision)</td>
+      <td>Slide 2: Esquema del horizonte polar rasante y el cuello de botella actual.</td>
+      <td>&laquo;En el polo sur lunar el Sol apenas sube entre 2 y 6 grados sobre el horizonte y la Tierra casi no se mueve en el cielo. Una sola pared de crater puede dejar al modulo a oscuras o en un punto ciego sin radio con la tripulacion ni confirmacion fotografica del satelite. Hoy, verificar esto exige saltar manualmente entre QuickMap, Moon Trek y tablas crudas de JPL Horizons.&raquo;</td>
+    </tr>
+    <tr>
+      <td><b>Slide 3</b><br>0:45 - 1:20<br>(35 s)</td>
+      <td><b>02 · Solucion Construida</b><br>(KPI + Filtro + 3 Perfiles)</td>
+      <td>Slide 3 / App Web: Muestra el flujo de 3 pasos (Registro, Catalogo, Robotito) y las 3 pestañas de interfaz.</td>
+      <td>&laquo;Por eso creamos ORYSEL: el usuario se registra, explora sitios con fuente oficial de la NASA y nuestro asistente virtual <b>ORY-Bot</b> calcula un <b>KPI de Viabilidad de 0 a 100%</b>. Si se pierde el enlace con la Tierra o la linea de vision con el satelite orbital, ORYSEL descarta el sitio automaticamente. Ademas, adaptamos la interfaz en tres vistas: <b>Profesional</b> (acimut y velocidades de escape), <b>Educativa</b> e <b>Infantil</b> con un simulador de flechas vectoriales en un cohete.&raquo;</td>
+    </tr>
+    <tr>
+      <td><b>Slide 4</b><br>1:20 - 1:50<br>(30 s)</td>
+      <td><b>03 · El Aporte Espacial</b><br>(Dato &rarr; Proceso &rarr; Resultado &rarr; Decision)</td>
+      <td>Slide 4: Cadena de valor de los datos espaciales de la NASA.</td>
+      <td>&laquo;¿Por que importan los datos espaciales aqui? Tomamos como <b>dato espacial</b> los kernels NAIF DE440 y coordenadas LROC; en el <b>procesamiento</b>, nuestro kernel en TypeScript transforma posiciones al marco lunar <code>MOON_ME</code> corrigiendo el tiempo de luz; como <b>resultado</b>, hallamos al segundo exacto cada salida y ocultacion; y eso se vuelve una <b>decision del usuario</b>: aprobar o descartar un sitio.&raquo;</td>
+    </tr>
+    <tr>
+      <td><b>Slide 5</b><br>1:50 - 2:35<br>(45 s)</td>
+      <td><b>04 · Demostracion del Prototipo</b><br>(Entrada, Interaccion, Salida y Contraste 3D)</td>
+      <td>En vivo en <code>App.tsx</code>: Clic en <i>Crater Shackleton</i> (18% NO-GO), luego clic en <i>Reiner Gamma</i> (96% GO) e <i>IM-2</i> (85% GO), y vista Infantil del cohete.</td>
+      <td>&laquo;Miren la demostracion completa: como <b>entrada</b> elegimos el interior del Crater Shackleton. En la <b>interaccion</b>, ORY-Bot detecta que la muralla de 11 grados bloquea la Tierra y el satelite; la <b>salida</b> es un descarte inmediato con <b>18% NO-GO por punto ciego</b>. Al cambiar a <b>Reiner Gamma</b> (anomalia magnetica de 28 nT) o a <b>IM-2 en Mons Mouton</b>, el KPI sube a <b>96% y 85% GO</b>. En la vista Infantil, el porcentaje cambia a <i>"¡Si se puede!"</i> y el niño ajusta las flechas vectoriales del cohete para ver si aluniza a menos de 1.68 km/s o entra en orbita. Y en nuestra capsula de 15 segundos en SpaceEngine corroboramos visualmente que las sombras y alturas coinciden con nuestro calculo.&raquo;</td>
+    </tr>
+    <tr>
+      <td><b>Slide 6</b><br>2:35 - 3:00<br>(25 s)</td>
+      <td><b>05 · Evidencia y Limitaciones</b><br>(Resultados medidos y honestidad tecnica)</td>
+      <td>Slide 6: Cuadrantes de Resultados Medidos, Beneficios, Limites Actuales y Fuentes.</td>
+      <td>&laquo;Sustentamos todo con evidencia medida: comparamos las 721 horas del mes en IM-2 contra la API de <b>NASA JPL Horizons</b> y logramos una diferencia menor a <b>0.00003 grados</b>, con 1,442 registros probados en PostgreSQL sobre AWS y 60 FPS en el navegador. Con total transparencia, nuestra limitacion actual es que el relieve usa perfiles discretos por sitio en vez de procesar el mapa LOLA completo en tiempo real.&raquo;</td>
+    </tr>
+    <tr>
+      <td><b>Slide 7</b><br>3:00 - 3:15<br>(15 s)</td>
+      <td><b>06 · Cierre y Trabajo Futuro</b><br>(Hoja de ruta y equipo)</td>
+      <td>Slide 7: Equipo ORYSEL, arquitectura en 3 capas y hoja de ruta con asesores.</td>
+      <td>&laquo;Nuestro siguiente paso junto a nuestros asesores academicos es automatizar el relieve LOLA en AWS e incorporar perturbaciones por ecuaciones de Euler-Lagrange, elipses gaussianas, la exosfera lunar a 2 km y nubes electrostaticas de regolito. Somos el equipo ORYSEL, muchas gracias.&raquo;</td>
+    </tr>
+  </tbody>
+</table>
+
+<h2>3. LAS 8 FRASES OBLIGATORIAS PARA ENSAYAR (SLIDE 9 DE "ARMA TU PITCH")</h2>
+<p>Memorizar y practicar con cronometro (una persona explica y otra opera la computadora):</p>
+<ol>
+  <li><b>Nuestro usuario es:</b> Un planificador de misiones lunares, asi como docentes y estudiantes que necesitan evaluar donde y en que fecha alunizar.</li>
+  <li><b>Su problema es:</b> Que en la Luna —especialmente en el polo sur— el Sol va rasante y una sola montaña puede dejar la mision sin energia o en un punto ciego sin comunicacion con la Tierra ni confirmacion fotografica del satelite, y hoy para saberlo hay que cruzar manualmente varias plataformas y tablas crudas de la NASA.</li>
+  <li><b>Construimos:</b> ORYSEL, una aplicacion web en 3 capas con un kernel astronomico propio en TypeScript (<code>src/ephemeris/</code>), un asistente virtual (ORY-Bot) y tres vistas adaptadas (Profesional, Educativa e Infantil con simulador de vectores en un cohete).</li>
+  <li><b>Usamos datos de:</b> Los kernels planetarios y de orientacion lunar <b>SPICE DE440 de NASA/NAIF</b>, coordenadas verificadas por <b>NASA LROC</b>, perfiles de horizonte basados en <b>LOLA</b> y el sistema <b>NASA/JPL Horizons</b> para validacion.</li>
+  <li><b>En esta demostracion pueden ver:</b> Como ORYSEL evalua un mes completo hora por hora, descarta automaticamente el interior del Crater Shackleton (KPI 18% NO-GO) por punto ciego de comunicacion, aprueba sitios optimos como Reiner Gamma (96% GO) e IM-2 en Mons Mouton (85% GO), y adapta la interfaz desde telemetria profesional hasta un juego de flechas vectoriales para niños.</li>
+  <li><b>Probamos:</b> Nuestro motor comparando 721 horas continuas del sitio IM-2 contra la API oficial de NASA/JPL Horizons y cargando 1,442 registros reales en PostgreSQL sobre AWS, logrando una precision con error menor a <b>0.00003 grados</b>.</li>
+  <li><b>Nuestra limitacion actual es:</b> Que para mantener 60 FPS en el cliente sin depender de un servidor pesado, el relieve topografico usa perfiles precalculados por sitio en lugar de extraer en tiempo real cualquier coordenada del modelo digital de elevacion LOLA completo.</li>
+  <li><b>El siguiente paso es:</b> Automatizar la extraccion de horizontes de 360 grados desde LOLA en nuestra API abierta de AWS e integrar en el propagador las perturbaciones por ecuaciones de Euler-Lagrange, elipses de incertidumbre gaussiana, la interaccion con la exosfera lunar (~2 km) y el levantamiento electrostatico de nubes de regolito.</li>
+</ol>
+
+<h2>4. GUION PARA EL TURNO DEL JURADO LOCAL (SLIDE 10 DE "ARMA TU PITCH")</h2>
+<p><b>Estructura oficial del turno en sede:</b> 30 segundos de identificacion y evidencia + 3 minutos de preguntas directas del jurado (dos paneles) + 90 segundos de cambio.</p>
+
+<h3>A. Discurso de 30 Segundos (Identificacion y Evidencia al entrar):</h3>
+<div class="box-speech">
+  &laquo;Hola jurado, somos el equipo <b>ORYSEL</b> en el reto <b>Lunar Landing Site Navigator</b>. Construimos una plataforma web que calcula con los kernels SPICE DE440 de la NASA cuando un sitio lunar tiene luz solar y linea de vision directa con la Tierra y con satelites orbitales, descartando puntos ciegos. Aqui ven nuestra app funcionando en vivo con 4 sitios reales (IM-2, Reiner Gamma, Shackleton y Apollo 11), segmentada en vista Profesional, Educativa e Infantil, y comprobada contra NASA JPL Horizons con un error menor a 0.00003 grados.&raquo;
+</div>
+
+<h3>B. Respuestas Exactas a las 4 Preguntas Clave de los Paneles (Slide 10):</h3>
+<ul>
+  <li><b>1. ¿Que parte usa datos espaciales?</b><br>
+    &laquo;El nucleo matematico del proyecto (<code>web/src/ephemeris/</code>): cargamos cinco kernels oficiales de NASA/NAIF (<code>naif0012.tls</code>, <code>pck00011.tpc</code>, <code>moon_pa_de440_200625.bpc</code>, <code>moon_de440_250416.tf</code> y <code>de440s.bsp</code>) mediante <code>timecraftjs</code> para calcular posiciones aparentes del Sol y la Tierra en el marco fijo lunar <code>MOON_ME</code>, ademas de usar coordenadas medidas por la camara LROC de la NASA.&raquo;
+  </li>
+  <li><b>2. ¿Que construyeron durante el hackathon?</b><br>
+    &laquo;Construimos todo el repositorio desde cero este fin de semana: (1) los scripts en Python y SQL (<code>descargar_horizons.py</code> y <code>cargar.sql</code>) que cargaron 1,442 filas reales de Horizons en PostgreSQL sobre AWS; (2) el kernel geometrico y de eventos en TypeScript (<code>geometry.ts</code>, <code>events.ts</code>, <code>report.ts</code>) que calcula el KPI de viabilidad y filtra puntos ciegos; y (3) la aplicacion en React y Vite (<code>App.tsx</code>) con la grafica de elevacion, el asistente ORY-Bot y el simulador interactivo de vectores del cohete.&raquo;
+  </li>
+  <li><b>3. ¿Como comprobaron que funciona?</b><br>
+    &laquo;Escribimos pruebas automatizadas (<code>ephemeris.test.ts</code> y <code>scripts/horizons.ts</code>) que comparan nuestros calculos contra la API oficial de NASA/JPL Horizons para las mismas coordenadas y fechas: la diferencia maxima en todo el mes es de apenas 0.00003 grados. Ademas, contrastamos visualmente las coordenadas y fechas en SpaceEngine para verificar que la altura del Sol y la Tierra sobre el horizonte coincidan.&raquo;
+  </li>
+  <li><b>4. ¿Cual es la principal limitacion?</b><br>
+    &laquo;Hoy nuestra principal limitacion es que el horizonte con relieve de montañas usa perfiles discretos precalculados para garantizar 60 FPS en el navegador, en vez de cortar en vivo los gigabytes del mapa LOLA para cualquier coordenada. Asimismo, el modelado dinamico con ecuaciones de Euler-Lagrange, distribuciones gaussianas, exosfera a 2 km y levantamiento electrostatico de polvo de regolito esta parametrizado como nuestra hoja de ruta de trabajo futuro asesorada por los doctores Horacio, Jorge, Manuel Martinez, Mendoza y Montero.&raquo;
+  </li>
+</ul>
+
+</body>
+</html>

@@ -1,136 +1,169 @@
+import { useState } from 'react'
+import { AWS_BASE_URL, type AwsTelemetryState } from '../ephemeris/awsApi.ts'
 import type { Sample, Site, ViabilityKPI } from '../ephemeris/types.ts'
 
 interface ArchitectureDefensePanelProps {
   site: Site
   viability: ViabilityKPI
   activeSample: Sample
+  awsTelemetry: AwsTelemetryState
+  clientFps: number
+  onClose: () => void
 }
 
-const fmt = (iso: string) => iso.replace('T', ' ').replace(':00Z', ' UTC').replace('Z', ' UTC')
+const INTEGRATION_SNIPPET = `// 1. Consumir API abierta de ORYSEL en AWS EC2 (FastAPI + PostgreSQL 16)
+const res = await fetch('${AWS_BASE_URL}/api/sites');
+const { source, metrics } = await res.json();
+console.log('Fuente:', source, metrics);
+
+// 2. O incrustar el visor ORYSEL mediante iframe en cualquier portal externo:
+// <iframe src="https://agdisc11.github.io/ORYSEL/" width="100%" height="640" style="border:0"></iframe>`
 
 export function ArchitectureDefensePanel({
   site,
   viability,
-  activeSample,
+  awsTelemetry,
+  clientFps,
+  onClose,
 }: ArchitectureDefensePanelProps) {
+  const [copied, setCopied] = useState(false)
+
+  const handleCopy = () => {
+    navigator.clipboard?.writeText(INTEGRATION_SNIPPET)
+    setCopied(true)
+    setTimeout(() => setCopied(false), 2000)
+  }
+
   return (
-    <section className="defense-grid" aria-label="Arquitectura, Validación SpaceEngine y Respaldo Académico">
-      {/* 1. SpaceEngine Bounded Visual Validation Capsule */}
-      <div className="defense-card highlight">
-        <span className="pill-badge">CÁPSULA DE CONTRASTE FÍSICO 3D · SPACE ENGINE</span>
-        <h3>Parámetros Exactos de Validación Visual (No-Producto)</h3>
-        <p className="muted">
-          ORYSEL calcula los vectores analíticos con SPICE DE440; SpaceEngine se utiliza únicamente
-          durante 30 s para corroborar visualmente la topografía e iluminación dictadas por este
-          algoritmo:
-        </p>
-        <div className="kv-list mono">
-          <div>
-            <span>Escena Guardada:</span>
-            <strong>{site.spaceEnginePreset?.sceneName ?? '1-IM2-MonsMouton'}</strong>
+    <div
+      className="modal-backdrop"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="arch-modal-title"
+    >
+      <div className="modal-card modal-wide">
+        <div className="modal-header">
+          <span className="pill-badge">
+            DEFENSA TÉCNICA · ARQUITECTURA EN 3 CAPAS, INTEROPERABILIDAD AWS & RESPALDO UP
+          </span>
+          <button type="button" className="btn-ghost" onClick={onClose} aria-label="Cerrar modal">
+            ✕ Cerrar
+          </button>
+        </div>
+
+        <h2 id="arch-modal-title">
+          Arquitectura Desacoplada en 3 Capas y API Abierta en Producción (AWS EC2)
+        </h2>
+
+        <div className="defense-grid">
+          {/* (a) 3 Capas con telemetría en vivo */}
+          <div className="defense-card highlight">
+            <span className="pill-badge">A · ARQUITECTURA EN 3 CAPAS (MÉTRICAS EN VIVO)</span>
+            <h3>Frontend 60 FPS + Backend AWS EC2 + Kernel Físico</h3>
+            <ul className="layer-list">
+              <li>
+                <strong>Capa 1 · Presentación Cliente (React 19 + Vite):</strong> Renderizado
+                vectorial SVG memorizado manteniendo{' '}
+                <strong className="mono">{clientFps} FPS</strong> en tiempo real sin bloquear el
+                hilo principal.
+              </li>
+              <li>
+                <strong>Capa 2 · Backend Cloud AWS EC2 (`{awsTelemetry.awsRegion}`):</strong>{' '}
+                Servidor Ubuntu 24.04 con <strong>{awsTelemetry.engine}</strong> en{' '}
+                <code className="mono">{AWS_BASE_URL}</code>. Ping RTT:{' '}
+                <strong className="mono">
+                  {awsTelemetry.pingRttMs !== null ? `${awsTelemetry.pingRttMs} ms` : 'Cache'}
+                </strong>{' '}
+                | Query SQL: <strong className="mono">{awsTelemetry.dbQueryMs} ms</strong> |{' '}
+                <strong className="mono">
+                  {awsTelemetry.horizonsRecords.toLocaleString('en-US')} registros
+                </strong>{' '}
+                de NASA JPL Horizons en <code>prueba.horizons_im2</code>.
+              </li>
+              <li>
+                <strong>Capa 3 · Kernel Físico (`src/ephemeris/`):</strong> Cinemática en marco{' '}
+                <code>MOON_ME</code> con NASA NAIF SPICE (<code>timecraftjs</code> DE440),
+                propagadores basados en <strong>Leyes de Kepler</strong>, ecuaciones variacionales
+                de <strong>Euler-Lagrange</strong> y dispersión <strong>gaussiana 3σ</strong> (±
+                {viability.kinematics.landingEllipse3SigmaKm} km).
+              </li>
+            </ul>
           </div>
-          <div>
-            <span>Época Sincronizada:</span>
-            <strong>{fmt(activeSample.t)}</strong>
-          </div>
-          <div>
-            <span>Coordenadas MOON_ME:</span>
-            <strong>
-              {Math.abs(site.lat).toFixed(4)}° {site.lat < 0 ? 'S' : 'N'},{' '}
-              {Math.abs(site.lon).toFixed(4)}° {site.lon < 0 ? 'W' : 'E'} ({site.heightKm} km)
-            </strong>
-          </div>
-          <div>
-            <span>Vector Solar (Az / El):</span>
-            <strong>
-              Az {activeSample.sun_az.toFixed(2)}° · El {activeSample.sun_el.toFixed(2)}°
-            </strong>
-          </div>
-          <div>
-            <span>Vector Tierra (Az / El):</span>
-            <strong>
-              Az {activeSample.earth_az.toFixed(2)}° · El {activeSample.earth_el.toFixed(2)}°
-            </strong>
+
+          {/* (b) Respaldo Académico Multidisciplinario UP */}
+          <div className="defense-card">
+            <span className="pill-badge">B · RESPALDO ACADÉMICO Y COMITÉ ASESOR (UP)</span>
+            <h3>Validación Científica y de Ingeniería</h3>
+            <ul className="layer-list">
+              <li>
+                <strong>Dr. Horacio (Programación y Arquitectura de Software):</strong> Diseño
+                desacoplado en 3 capas, estructura modular del Kernel en TypeScript (
+                <code>src/ephemeris/</code>) y optimización de rendimiento en cliente.
+              </li>
+              <li>
+                <strong>Prof. Jorge y Dr. Manuel Martínez (Electrónica y Telemetría):</strong>{' '}
+                Presupuesto de enlace Tierra-Luna, latencia en descargas continuas y filtro
+                determinante de Línea de Visión (LoS) con la tripulación y el satélite orbital.
+              </li>
+              <li>
+                <strong>Dr. Mendoza y Dr. Montero (Física Teórica y Probabilidad):</strong>{' '}
+                Estabilidad dinámica con ecuaciones de Euler-Lagrange, modelos probabilísticos de
+                distribución gaussiana para regolito y análisis de anomalías magnéticas locales como{' '}
+                <strong>Reiner Gamma ({site.magneticAnomalynT ?? 28} nT)</strong> y exosfera lunar
+                (~2 km).
+              </li>
+            </ul>
           </div>
         </div>
-        {site.spaceEnginePreset?.cameraNote && (
-          <p className="preset-note">{site.spaceEnginePreset.cameraNote}</p>
-        )}
-      </div>
 
-      {/* 2. 3-Layer Software Architecture & AWS Low-Ping Open APIs */}
-      <div className="defense-card">
-        <span className="pill-badge">ARQUITECTURA DE SOFTWARE EN 3 CAPAS</span>
-        <h3>Desacoplamiento Cliente (60 FPS), Cloud AWS y Kernel SPICE</h3>
-        <ul className="layer-list">
-          <li>
-            <strong>Capa 1 · Frontend React + Vite (Optimización de FPS en Cliente):</strong>{' '}
-            Renderizado vectorial SVG/Canvas desacoplado que garantiza 60 FPS constantes en el
-            navegador del usuario sin bloquear el hilo principal.
-          </li>
-          <li>
-            <strong>Capa 2 · Backend en AWS y APIs Abiertas de Baja Latencia (Ping):</strong>{' '}
-            Infraestructura en AWS (PostgreSQL + S3/CloudFront + FastAPI) que expone endpoints REST
-            abiertos e integrables por terceros, optimizando la latencia (Ping) en descargas
-            continuas mediante series precalculadas (`precompute.ts`).
-          </li>
-          <li>
-            <strong>Capa 3 · Kernel Físico y Geométrico (`src/ephemeris/`):</strong> Motor propio
-            sobre `timecraftjs` (NASA NAIF SPICE DE440) validado contra JPL Horizons con error
-            máximo &lt; 0.00003°.
-          </li>
-        </ul>
-      </div>
+        {/* (c) Interoperabilidad y API Abierta en AWS */}
+        <div className="interop-box">
+          <div className="interop-header">
+            <div>
+              <span className="pill-badge">C · INTEROPERABILIDAD & API ABIERTA EN AWS EC2</span>
+              <h3>Endpoints REST Públicos para Integración por Terceros</h3>
+            </div>
+            <div className="interop-links">
+              <a
+                href={`${AWS_BASE_URL}/docs`}
+                target="_blank"
+                rel="noreferrer"
+                className="btn-primary btn-link"
+              >
+                Abrir Swagger UI (`/docs`) ↗
+              </a>
+              <a
+                href={`${AWS_BASE_URL}/api/ping`}
+                target="_blank"
+                rel="noreferrer"
+                className="btn-secondary btn-link"
+              >
+                `/api/ping` ↗
+              </a>
+              <a
+                href={`${AWS_BASE_URL}/api/sites`}
+                target="_blank"
+                rel="noreferrer"
+                className="btn-secondary btn-link"
+              >
+                `/api/sites` ↗
+              </a>
+            </div>
+          </div>
 
-      {/* 3. Lunar Environment & Future Work */}
-      <div className="defense-card">
-        <span className="pill-badge">AMBIENTE LUNAR Y HOJA DE RUTA (FUTURE WORK)</span>
-        <h3>Exosfera (~2 km), Regolito Electrostático y Anomalías Magnéticas</h3>
-        <ul className="layer-list">
-          <li>
-            <strong>Interacción con la Exosfera Lunar (~2 km):</strong> Índice de exposición actual{' '}
-            <code className="mono">{site.exosphereInteractionIndex ?? 0.2}</code> para modelar la
-            capa límite superficial y dispersión de gases de descenso.
-          </li>
-          <li>
-            <strong>Levitación Electrostática de Nubes de Regolito:</strong> Riesgo en sitio:{' '}
-            <strong className="mono">{site.electrostaticDustRisk ?? 'MODERATE'}</strong>. Modela el
-            polvo en suspensión durante tormentas solares y cruces del terminador que afecta paneles
-            y enlaces RF.
-          </li>
-          <li>
-            <strong>Anomalías Magnéticas Corticales (Caso Reiner Gamma):</strong> Campo local de{' '}
-            <strong className="mono">{site.magneticAnomalynT ?? 2} nT</strong> (mini-magnetosfera
-            que deflecta parcialmente el viento solar).
-          </li>
-        </ul>
-      </div>
+          <pre className="code-snippet mono">{INTEGRATION_SNIPPET}</pre>
 
-      {/* 4. Mathematical Rigor & Academic Advisory Board */}
-      <div className="defense-card">
-        <span className="pill-badge">FUNDAMENTO MATEMÁTICO Y RESPALDO ACADÉMICO</span>
-        <h3>Propagación Orbital, Estadística Gaussiana y Comité Asesor</h3>
-        <p className="muted">
-          Formulación sustentada en <strong>Leyes de Kepler</strong>, ecuaciones variacionales de{' '}
-          <strong>Euler-Lagrange</strong> para perturbaciones gravitatorias lunares y{' '}
-          <strong>distribuciones gaussianas multivariadas</strong> (elipse de dispersión 3σ:{' '}
-          <span className="mono">±{viability.kinematics.landingEllipse3SigmaKm} km</span>).
-        </p>
-        <ul className="layer-list compact">
-          <li>
-            <strong>Dr. Horacio:</strong> Arquitectura de software en 3 capas, estructura de datos y
-            optimización del Kernel (`src/ephemeris/`).
-          </li>
-          <li>
-            <strong>Prof. Jorge y Dr. Manuel Martínez:</strong> Electrónica, telemetría espacial,
-            presupuesto de enlace (Link Budget) y filtro de Línea de Visión (LoS).
-          </li>
-          <li>
-            <strong>Dr. Mendoza y Dr. Montero:</strong> Física teórica, estabilidad dinámica
-            (Euler-Lagrange) y modelos probabilísticos gaussianos.
-          </li>
-        </ul>
+          <div className="interop-footer">
+            <span className="muted">
+              Cualquier agencia, universidad o plataforma web puede consultar las 5,768 efemérides
+              de PostgreSQL en tiempo real.
+            </span>
+            <button type="button" className="btn-chip" onClick={handleCopy}>
+              {copied ? '✓ Snippet Copiado' : 'Copiar Snippet de Integración'}
+            </button>
+          </div>
+        </div>
       </div>
-    </section>
+    </div>
   )
 }

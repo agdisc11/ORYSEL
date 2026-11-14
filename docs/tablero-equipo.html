@@ -502,29 +502,29 @@ footer { font-size: 0.85rem; color: var(--muted); border-top: 1px solid var(--li
           <text class="d-label" x="944" y="233" text-anchor="middle">archivos</text>
         </svg>
       </div>
-      <figcaption>Hay dos caminos hacia la app. La API con la base de AWS sirve para desarrollar y para la demo en vivo. Los JSON ya calculados son la versión que ven los jueces, porque el servidor de AWS Academy se apaga cada 4 horas.</figcaption>
+      <figcaption>Hay dos caminos sincronizados hacia la app: la API activa en <b>AWS EC2 (<code>http://184.194.47.119:8000</code>, Ubuntu 24.04 + PostgreSQL 16 + FastAPI con 5,768 registros de JPL Horizons en <code>prueba.horizons_im2</code>)</b> responde en tiempo real (~16.8 ms en BD) y cuenta con respaldo automático local (JSON precalculados) si no hay red.</figcaption>
     </figure>
 
     <div class="screens">
       <div class="screen">
-        <span class="letter">Pantalla A</span>
-        <h3>Catálogo</h3>
-        <ul><li>Tarjetas de sitios con su fuente</li><li>Filtros por tipo de misión</li><li>Coordenadas propias</li></ul>
+        <span class="letter">Vista 1 · Ejecutiva KPI</span>
+        <h3>Toma de Decisiones</h3>
+        <ul><li>KPI consolidado (0–100%) y veredicto GO / NO-GO</li><li>Tarjetas Sol/Tierra en vivo desde AWS PostgreSQL</li><li>Riesgos de exosfera (~2 km), regolito 3σ y Reiner Gamma</li></ul>
       </div>
       <div class="screen">
-        <span class="letter">Pantalla B</span>
-        <h3>Ficha del sitio</h3>
-        <ul><li>Barra de tiempo con play</li><li>Horizonte con Sol y Tierra</li><li>Cuenta regresiva y veredicto</li></ul>
+        <span class="letter">Vista 2 · Profesional NASA</span>
+        <h3>Mecánica Orbital</h3>
+        <ul><li>Curva de horizonte <code>ElevationChart.tsx</code> y acimut</li><li>Velocidades orbital (1.68 km/s) y escape (2.38 km/s)</li><li>Serie horaria desde AWS <code>/api/horizons/{id}</code> + SpaceEngine 3D</li></ul>
       </div>
       <div class="screen">
-        <span class="letter">Pantalla C</span>
-        <h3>Comparador</h3>
-        <ul><li>Dos sitios o dos fechas</li><li>Puntaje de 0 a 100</li><li>Deslizador de retraso</li></ul>
+        <span class="letter">Vista 3 · Educativa</span>
+        <h3>Divulgación Visual</h3>
+        <ul><li>Tarjetas interactivas sin saturación de tablas</li><li>Libración lunar y anomalías magnéticas</li><li>Gráfica interactiva con línea de tiempo UTC</li></ul>
       </div>
       <div class="screen">
-        <span class="letter">Pantalla D</span>
-        <h3>Acerca de los datos</h3>
-        <ul><li>Fuentes de NASA</li><li>Comprobación con Horizons</li><li>Cómo usamos la IA</li></ul>
+        <span class="letter">Vista 4 · Infantil / Gamificada</span>
+        <h3>Simulador de Vectores</h3>
+        <ul><li>Veredicto gigante binario (¡Sí se puede! / ¡No se puede!)</li><li>Simulador <code>RocketVectorPlayground.tsx</code> con flechas vectoriales</li><li>ORY-Bot flotante y Modal de Arquitectura + Swagger AWS</li></ul>
       </div>
     </div>
   </section>
@@ -618,9 +618,9 @@ footer { font-size: 0.85rem; color: var(--muted); border-top: 1px solid var(--li
             <p>Los recursos oficiales son 4 enlaces: Quickmap, Moon Trek, JPL Horizons y el portal lunar de la agencia canadiense. No hay datos nuevos, así que el plan se mantiene.</p>
           </div>
           <div class="card ok">
-            <h3>Probar la base de datos en AWS</h3>
-            <div class="tags"><span class="pill done">14 nov</span></div>
-            <p>El servidor responde y PostgreSQL recibió 1442 filas reales de JPL Horizons (Sol y Tierra vistos desde IM-2, un mes, cada hora).</p>
+            <h3>API y Base de Datos en AWS EC2 Activa</h3>
+            <div class="tags"><span class="pill done">14 nov · En producción</span></div>
+            <p>Instancia Ubuntu 24.04 + PostgreSQL 16 + FastAPI activa en <code>http://184.194.47.119:8000</code> con <b>5,768 registros reales</b> de NASA/JPL Horizons (4 sitios lunares, Sol y Tierra) y Swagger público en <code>/docs</code>.</p>
           </div>
           <div class="card ok">
             <h3>Confirmar horarios y reglas de entrega</h3>
