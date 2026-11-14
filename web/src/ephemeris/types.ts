@@ -2,6 +2,14 @@
 
 export type Body = 'sun' | 'earth'
 
+export type UserProfileMode = 'professional' | 'educational' | 'kids'
+
+export interface SpaceEnginePreset {
+  sceneName: string
+  utcInstant: string
+  cameraNote: string
+}
+
 /** A point on the Moon. `source` says where the coordinates come from. */
 export interface Site {
   id: string
@@ -13,6 +21,24 @@ export interface Site {
   /** Height above the 1737.4 km reference sphere, km. */
   heightKm: number
   source: string
+  /** Optional geological/mission region tag. */
+  region?: string
+  /** Optional summary description for the catalog and assistant. */
+  description?: string
+  /** Optional 360-sample terrain horizon profile (degrees, from N clockwise). */
+  horizonProfile?: number[] | null
+  /** Minimum elevation angle (deg) required for unobstructed crew/ground comm link. */
+  minCommElevationDeg?: number
+  /** Elevation angle (deg) of the orbital reconnaissance pass for photographic confirmation. */
+  orbiterPassElDeg?: number
+  /** Local crustal magnetic anomaly intensity in nanoteslas (e.g. Reiner Gamma ~ 28 nT). */
+  magneticAnomalynT?: number
+  /** Electrostatic regolith levitation risk during terminator crossings / solar storms. */
+  electrostaticDustRisk?: 'LOW' | 'MODERATE' | 'HIGH'
+  /** Lunar exosphere boundary-layer scale height (~2 km) interaction index (0..1). */
+  exosphereInteractionIndex?: number
+  /** Optional SpaceEngine 3D visual validation preset. */
+  spaceEnginePreset?: SpaceEnginePreset
 }
 
 export interface SkyPosition {
@@ -59,6 +85,35 @@ export interface Metrics {
   max_earth_el: number
 }
 
+export interface ViabilityKPI {
+  /** Executive Mission Viability Indicator (0..100%). */
+  scorePct: number
+  /** Binary viability flag for gamified/kids mode ("¡Sí se puede!" vs "No se puede"). */
+  isViable: boolean
+  /** Mission status classification. */
+  verdict: 'GO' | 'CAUTION' | 'NO-GO (BLIND SPOT)'
+  /** Whether direct communication link with crew/Earth meets safety threshold. */
+  commLinkOk: boolean
+  /** Whether direct line-of-sight (LoS) with orbital satellite exists for photo confirmation. */
+  orbiterPhotoLoS: boolean
+  /** True when either crew comm link or orbiter photographic LoS is blocked. */
+  blindSpotDetected: boolean
+  /** Explanation when vetoed or cautioned. */
+  vetoReason: string | null
+  subscores: {
+    illumination: number
+    communication: number
+    azimuthTopography: number
+    environment: number
+  }
+  kinematics: {
+    orbitalVelocityKmS: number
+    escapeVelocityKmS: number
+    optimalApproachAzimuthDeg: number
+    landingEllipse3SigmaKm: number
+  }
+}
+
 export interface SiteReport {
   site: Site
   start: string
@@ -70,6 +125,7 @@ export interface SiteReport {
   events: SkyEvent[]
   windows: Window[]
   metrics: Metrics
+  viability?: ViabilityKPI
 }
 
 /** Horizon elevation (degrees) in the direction of an azimuth (degrees). */

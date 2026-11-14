@@ -3,7 +3,7 @@ import { compareWithHorizons } from '../../scripts/horizons.ts'
 import { loadKernelFiles } from '../../scripts/kernels.ts'
 import { intersect, profileHorizon } from './events.ts'
 import { assertValidSite, toSky } from './geometry.ts'
-import { buildReport } from './report.ts'
+import { buildReport, computeViabilityKPI } from './report.ts'
 import { createEphemeris, type Ephemeris } from './spice.ts'
 import type { Site } from './types.ts'
 
@@ -79,15 +79,32 @@ describe('SPICE engine', () => {
     expect(r.metrics.both_visible_pct).toBeLessThanOrEqual(
       Math.min(r.metrics.sun_visible_pct, r.metrics.earth_visible_pct),
     )
+    expect(r.viability).toBeDefined()
+    expect(r.viability?.isViable).toBe(true)
+    expect(r.viability?.kinematics.orbitalVelocityKmS).toBeCloseTo(1.68, 2)
+    expect(r.viability?.kinematics.escapeVelocityKmS).toBeCloseTo(2.376, 2)
   })
 
-  it('loses sunlight behind a terrain horizon', () => {
+  it('loses sunlight behind a terrain horizon and triggers blind-spot veto when comm/orbiter LoS is blocked', () => {
     const smooth = buildReport(eph, IM2, '2026-11-14', '2026-12-14')
     const walled = buildReport(eph, IM2, '2026-11-14', '2026-12-14', {
       horizonProfile: Array(360).fill(3),
     })
     expect(walled.metrics.sun_visible_pct).toBeLessThan(smooth.metrics.sun_visible_pct)
     expect(walled.horizon.type).toBe('terrain')
+
+    const blindCrater = buildReport(
+      eph,
+      { ...IM2, id: 'blind', orbiterPassElDeg: 11, minCommElevationDeg: 5 },
+      '2026-11-14',
+      '2026-12-14',
+      { horizonProfile: Array(360).fill(12) },
+    )
+    const kpi = computeViabilityKPI(blindCrater)
+    expect(kpi.blindSpotDetected).toBe(true)
+    expect(kpi.isViable).toBe(false)
+    expect(kpi.verdict).toBe('NO-GO (BLIND SPOT)')
+    expect(kpi.scorePct).toBeLessThan(30)
   })
 
   it('matches NASA/JPL Horizons within a hundredth of a degree (needs internet)', async () => {

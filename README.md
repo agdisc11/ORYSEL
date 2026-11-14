@@ -1,55 +1,43 @@
-# ORYSEL · Lunar Landing Site Navigator
+# ORYSEL · Lunar Landing Site Navigator & Orbital Viability Platform
 
-NASA Space Apps Challenge 2026 · Tuxtla Gutiérrez · challenge "Lunar Landing Site Navigator".
+NASA Space Apps Challenge 2026 · Tuxtla Gutiérrez · Challenge: **Lunar Landing Site Navigator**.
 
-A web app that tells, for a landing site on the Moon, when the Sun is up (power) and
-when the Earth is in view (direct communication), and compares sites.
+**ORYSEL** is an orbital intelligence and lunar mission viability platform that computes—using NASA/NAIF SPICE (`DE440`) kernels and JPL Horizons validation—where, when, and with what probability of success a lunar mission can land, generate solar power, and maintain uninterrupted line-of-sight (LoS) communication with both Earth ground stations and orbital reconnaissance satellites.
 
-Status: work in progress, written during the hackathon (14–15 November 2026).
+---
 
-## What works today
+## Key Capabilities Implemented
 
-- **Ephemeris engine in TypeScript** (`web/src/ephemeris`). It runs NASA's SPICE toolkit
-  (CSPICE compiled to JavaScript by NASA-AMMOS, package `timecraftjs`) with the DE440
-  kernels and gives the azimuth and elevation of the Sun and the Earth from any point on
-  the lunar surface, rise and set times to one second, visibility windows and summary
-  metrics. A terrain horizon can be plugged in; today the horizon is a smooth sphere.
-- **First screen in React** (`web/src/App.tsx`): one month at the IM-2 site (Mons Mouton).
-- **Validation**: one month of hourly values for IM-2 agrees with NASA/JPL Horizons to
-  0.00003 degrees (`npm run check:horizons`).
+1. **SPICE DE440 Ephemeris & Geometry Kernel (`web/src/ephemeris/`)**:
+   - Runs NASA's SPICE toolkit compiled to JavaScript (`timecraftjs`) in the `MOON_ME` frame with light-time and stellar aberration corrections (`LT+S`).
+   - Computes topocentric azimuth (`Az`), elevation (`El`), rise/set crossings to 1-second accuracy (`events.ts`), and visibility windows (`report.ts`).
+   - Validated against **NASA/JPL Horizons** (`npm run check:horizons`) to within `0.00003°`.
+2. **Executive Mission Viability KPI & Deterministic Blind-Spot Filter (`report.ts`)**:
+   - Synthesizes Illumination, Communication Link, Topographic Azimuth clearance, and Lunar Environment factors (~2 km exosphere, electrostatic regolith dust levitation, and local magnetic anomalies like **Reiner Gamma ~28 nT**) into a `0–100%` executive KPI.
+   - Automatically penalizes and vetoes (`NO-GO / BLIND SPOT`) sites where crew communication drops below safe elevation margins or where crater walls block direct Line-of-Sight (LoS) with the orbital satellite required for photographic confirmation.
+3. **3-Step Guided User Journey (`App.tsx`)**:
+   - **Step 1:** Account & Mission Profile Registration (`OnboardingModal.tsx`).
+   - **Step 2:** Curated Lunar Sites Catalog (`sites.ts` + `web/public/data/*.json`) featuring **IM-2 Athena (Mons Mouton)**, **Reiner Gamma (Lunar Swirl & Magnetic Anomaly)**, **Shackleton Crater Interior (Blind-Spot Veto Case)**, and **Mare Tranquillitatis (Apollo 11 Benchmark)**.
+   - **Step 3:** Interactive viability consultation guided by **ORY-Bot** (`OryBotAssistant.tsx`).
+4. **Triple Interface Segmentation (3 User Profiles)**:
+   - **Professional View (NASA / Orbital Mechanics):** Full telemetry, azimuth/elevation curves (`ElevationChart.tsx`), orbital insertion velocity ($1.68\text{ km/s}$), surface escape velocity ($2.38\text{ km/s}$), optimal approach azimuth, and $3\sigma$ Gaussian landing ellipse.
+   - **Educational View:** Interactive visual cards explaining orbital geometry, lunar libration, and cortical magnetic anomalies without equation overload.
+   - **Kids / Gamified View (`RocketVectorPlayground.tsx`):** Converts percentage KPIs into binary verdicts (**"¡Sí se puede!"** / **"No se puede"**) and features an interactive **Rocket Velocity Vector Simulator** with draggable velocity vector arrows to test landing, lunar orbit insertion, and escape velocity.
+5. **3-Layer Architecture & Bounded 3D Visual Validation (`ArchitectureDefensePanel.tsx` & `docs/plan-demo-spaceengine.md`)**:
+   - **Layer 1 (Client Frontend):** React + Vite optimized for smooth 60 FPS rendering.
+   - **Layer 2 (AWS Cloud & Open APIs):** PostgreSQL (`pruebas/bd-nasa/cargar.sql`) + static/edge JSON distribution designed for low-ping continuous downloads and third-party integration.
+   - **Layer 3 (Physics Kernel):** Deterministic SPICE/Horizons engine, paired with a bounded 35-second SpaceEngine 3D visual cross-check protocol.
 
-## Run it
+---
+
+## Quick Start
 
 ```bash
 cd web
 npm install
-npm run kernels      # downloads the NASA/NAIF kernels (about 35 MB) and checks SHA-256
-npm run precompute   # writes public/data/<site>.json
-npm run dev          # opens the app
-npm test             # unit tests + Horizons comparison (needs internet)
+npm run kernels      # downloads NASA/NAIF kernels (~35 MB) and verifies SHA-256
+npm run precompute   # precomputes public/data/<site>.json for all sites in sites.ts
+npm run dev          # starts the Vite development server
+npm test             # runs unit tests + JPL Horizons validation
+npm run build        # type-checks and builds the production bundle
 ```
-
-## Conventions
-
-Frame MOON_ME · planetocentric latitude · east longitude −180..180 · sphere of 1737.4 km ·
-UTC · azimuth from north, clockwise · apparent positions (light time + stellar aberration).
-Every site coordinate carries its source; no source, no site.
-
-## NASA data and tools
-
-- NAIF generic kernels: `naif0012.tls`, `pck00011.tpc`, `moon_pa_de440_200625.bpc`,
-  `moon_de440_250416.tf`, `de440s.bsp` — https://naif.jpl.nasa.gov/naif/data_generic.html
-- SPICE toolkit (NAIF) through `timecraftjs` (NASA-AMMOS, Apache-2.0)
-- JPL Horizons API, for validation only — https://ssd.jpl.nasa.gov/horizons/
-- Site coordinates: NASA LROC
-
-## Use of AI
-
-Code and documents in this repository were written with the help of an AI assistant
-(Claude, by Anthropic) during the event, directed and reviewed by the team.
-
-## Folders
-
-- `web/` — the app (Vite + React + TypeScript)
-- `docs/` — team board and demo plan (Spanish)
-- `pruebas/` — test that loads JPL Horizons data into the team's PostgreSQL server

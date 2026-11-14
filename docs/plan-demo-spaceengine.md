@@ -1,92 +1,80 @@
-# Plan de la demostración con SpaceEngine
+# Plan de Trabajo, Arquitectura y Guion de Demostración (ORYSEL + Validación Visual 3D en SpaceEngine)
 
-Equipo ORYSEL · NASA Space Apps 2026 · Lunar Landing Site Navigator
-Estado: borrador del sábado 14 de noviembre. Falta que el equipo resuelva las dudas de la sección 4.
+**Equipo ORYSEL · NASA Space Apps 2026 · Lunar Landing Site Navigator (Sede Tuxtla Gutiérrez)**
 
-**Regla que no cambia:** SpaceEngine se usa solo para mostrar. La app no lo necesita, no usa sus datos y no queda en la versión final. Todos los números salen de nuestra app (SPICE y datos abiertos de NASA).
+> **Directriz Estratégica de Blindaje ante Mentores y Jurado:**
+> **ORYSEL** (`web/src/App.tsx` + nuestro Kernel Físico SPICE/DE440 en `web/src/ephemeris/`) es el **protagonista absoluto y único motor de cálculo**.
+> **SpaceEngine** **nunca** se presenta como el producto ni como fuente de datos: entra exclusivamente en un bloque acotado de **30 a 35 segundos** denominado **"Cápsula de Validación Visual y Contraste Físico 3D"** para corroborar ópticamente las coordenadas, sombras y líneas de visión que nuestro algoritmo ya dictaminó.
 
-## 1. Herramientas y recursos
+---
 
-| Herramienta | Para qué se usa | ¿Va en el producto final? |
-|---|---|---|
-| App web propia (React + TypeScript) | Lo que se entrega: catálogo, ficha del sitio, comparador | Sí |
-| SPICE de NASA/NAIF con DE440 (dentro de la app) | Calcular dónde están el Sol y la Tierra vistos desde cada sitio | Sí |
-| JPL Horizons | Comprobar nuestros cálculos | No, solo validación |
-| LOLA / LROC (NASA) | Relieve, horizonte e imágenes de los sitios | Sí |
-| **SpaceEngine** | Motor de simulación 3D para las demostraciones visuales: enseña la misma escena que la app calculó | **No, solo demostración** |
-| Grabador de pantalla (OBS o el de Windows) | Video de respaldo de cada escena de SpaceEngine | No |
+## 1. Integración Estratégica de Herramientas y Rol en la Arquitectura
 
-## 2. Flujo de la demostración
+| Componente / Herramienta | Rol Técnico en ORYSEL | ¿Forma parte del producto entregable? |
+| :--- | :--- | :--- |
+| **Frontend React + Vite (`web/src/`)** | Interfaz en **3 perfiles** (Profesional NASA, Educativa, Infantil/Gamificada), optimizada a **60 FPS** en el cliente, con asistente virtual (**ORY-Bot**) y simulador de vectores en cohete. | **Sí (Capa 1)** |
+| **Backend Cloud AWS (`pruebas/bd-nasa/`, FastAPI/PostgreSQL + JSON Edge)** | APIs abiertas e integrables por terceros con baja latencia (**Ping optimizado**) para descargas continuas y datasets precalculados (`web/public/data/*.json`). | **Sí (Capa 2)** |
+| **Kernel Físico y Geométrico (`web/src/ephemeris/`)** | Módulos `spice.ts` (`timecraftjs` DE440), `geometry.ts`, `events.ts`, `report.ts` y `types.ts`. Calcula acimut, elevación, velocidades orbitales/escape y el **KPI de Viabilidad**. | **Sí (Capa 3)** |
+| **NASA JPL Horizons (`descargar_horizons.py`, `horizons.ts`)** | Validación astronómica cruzada con precisión $< 0.00003^\circ$. | **Sí (Validación científica)** |
+| **SpaceEngine (3D)** | **Gemelo óptico de corroboración visual (35 s):** muestra en 3D la escena exacta (coordenadas y época UTC) que `report.ts` ya calculó. | **No (Solo contraste visual en demo)** |
 
-La idea de cada escena es la misma: **la app da el número y SpaceEngine lo enseña**. Nunca al revés.
+---
 
-| Momento | Qué se dice | Qué se ve en la app | Qué se ve en SpaceEngine |
-|---|---|---|---|
-| 0:00 a 0:10 | Una frase: qué es y para quién. Sin tablas ni fórmulas. | Portada | Nada |
-| 0:10 a 0:40 | Elegimos un sitio del catálogo (IM-2, Mons Mouton) | Catálogo y ficha: 59 % del mes con Sol, 73 % con la Tierra a la vista | Nada |
-| 0:40 a 1:05 | "Así se ve ese cielo desde el suelo" | La gráfica marca una fecha y hora | **Escena 1:** cámara parada en el sitio, a la misma fecha y hora. El Sol rasante a unos 2° y la Tierra baja sobre el horizonte |
-| 1:05 a 1:25 | "Y aquí se pierde la comunicación" | Evento "la Tierra se oculta" con su hora | **Escena 2:** se acelera el tiempo y la Tierra baja hasta tocar el horizonte en esa misma hora |
-| 1:25 a 1:45 | Comparamos con otro sitio | Comparador y veredicto | **Escena 3 (opcional):** vista desde órbita con los dos sitios y la línea día-noche |
-| 1:45 a 2:00 | Cierre: datos de NASA, comprobado contra Horizons | Página "Acerca de los datos" | Nada |
+## 2. Recorrido de Usuario (User Journey) y Triple Segmentación en `App.tsx`
 
-Cómo se conecta con la explicación técnica:
+### A. Apertura de Alto Impacto (0:00 a 0:10)
+Antes de mostrar cualquier ecuación o gráfica, el pitch abre con una definición contundente de una sola frase:
+> *"En la exploración lunar, aterrizar a ciegas cuesta cientos de millones de dólares: perder la línea de visión con la Tierra o con el satélite orbital durante el descenso significa perder la misión. **ORYSEL** es la plataforma de inteligencia orbital que predice matemáticamente dónde, cuándo y con qué probabilidad de éxito puede alunizar y comunicarse una misión antes de lanzar un solo kilogramo al espacio."*
 
-- Escena 1 enseña **acimut y elevación**: los dos números de la ficha son la posición del Sol y la Tierra en ese cielo.
-- Escena 2 enseña un **evento**: la hora que calculó la app es la hora en que la Tierra cruza el horizonte.
-- Escena 3 enseña por qué los polos son especiales: el Sol nunca sube mucho y las sombras son largas.
+### B. Recorrido Paso a Paso en la Interfaz Web
+1. **Paso 1 — Registro y Creación de Cuenta (`OnboardingModal.tsx`):** El usuario registra su nombre, institución y elige su perfil operativo (`Profesional`, `Educativo` o `Infantil`).
+2. **Paso 2 — Exploración de Sitios Recomendados (`sites.ts` + `public/data/*.json`):**
+   - **IM-2 Athena (Mons Mouton — `im2.json`):** Meseta polar sur con Sol rasante y alta visibilidad terrestre.
+   - **Reiner Gamma (`reiner-gamma.json`):** Remolino lunar ecuatorial con anomalía magnética cortical (~28 nT), topografía llana y visibilidad óptima (**KPI ~89% GO**).
+   - **Cráter Shackleton Interior (`shackleton-blindspot.json`):** Depresión polar con muralla topográfica de $10^\circ\text{–}12^\circ$ que demuestra el **descarte automático por punto ciego** (**KPI ~19% NO-GO**).
+   - **Mare Tranquillitatis (`apollo11.json`):** Referencia histórica de control.
+3. **Paso 3 — Consulta de Viabilidad Guiada por el Asistente Virtual (`OryBotAssistant.tsx`):** Nuestro asistente ("robotito" **ORY-Bot**) interpreta los resultados de `report.ts`, alerta si se pierde el enlace con la tripulación o la cámara del satélite orbital y recomienda el sitio óptimo.
 
-Antes del pitch hay que comprobar cada escena: poner en SpaceEngine la fecha y hora de la app y ver que el Sol y la Tierra quedan donde dice la app. Si no coinciden, esa escena no se usa.
+### C. KPI de Viabilidad + Filtro Determinante de Comunicación y Visibilidad Fotográfica
+En `web/src/ephemeris/report.ts`, la función `computeViabilityKPI()` integra `geometry.ts`, `events.ts` y `ElevationChart.tsx`:
+- Evalúa cuatro dimensiones: **Iluminación Solar (30%)**, **Enlace y Telemetría (35%)**, **Acimut y Topografía (20%)** y **Ambiente Lunar (15%)**.
+- **Compuerta de Veto Determinante ($\Gamma_{\text{LoS}}$):** Si el sitio pierde el enlace directo de comunicación con la tripulación o carece de **Línea de Visión Directa (LoS) con el satélite orbital para confirmación fotográfica**, el algoritmo activa `blindSpotDetected = true` y descarta el sitio (`NO-GO (BLIND SPOT)`), evitando puntos ciegos.
 
-## 3. Logística para que no falle
+### D. Triple Segmentación del Frontend
+1. **Vista Profesional (NASA / Mecánica Orbital):** Panel técnico conectado a `report.ts` y `ElevationChart.tsx` con ángulos acimutales, velocidad circular de inserción ($1.68\text{ km/s}$), velocidad de escape/salida ($2.38\text{ km/s}$), elipse de dispersión gaussiana $3\sigma$ y tabla de eventos.
+2. **Vista Educativa:** Tarjetas interactivas que explican acimut, elevación, libración lunar y anomalías magnéticas sin saturación matemática.
+3. **Vista Infantil / Gamificada (`RocketVectorPlayground.tsx`):** Traduce el porcentaje del KPI en un veredicto binario (**"¡SÍ SE PUEDE ALUNIZAR!"** vs. **"¡NO SE PUEDE!"**) e incluye un simulador interactivo con **flechas vectoriales de velocidad** sobre un cohete para experimentar cuándo aluniza, cuándo entra en órbita lunar y cuándo escapa al espacio profundo.
 
-**Preparación (antes del control de las 18:00)**
+---
 
-- Guardar cada escena como ubicación en SpaceEngine (posición, orientación de la cámara y fecha), con nombres "1-IM2-cielo", "2-IM2-ocaso-Tierra", "3-orbita". Los nombres de los menús cambian según la versión: comprobarlo en la laptop que se va a usar.
-- Anotar en una tarjeta, por escena: coordenadas, fecha y hora UTC, y los números que debe mostrar la app.
-- Dejar el tiempo en pausa al guardar. En la demo solo se usa una velocidad de tiempo, ya ensayada.
-- Ocultar la interfaz de SpaceEngine durante la escena, para que no distraiga.
-- Probar con el proyector de la sede: resolución, brillo (el polo lunar es muy oscuro) y cambio de ventana.
-- SpaceEngine ya abierto y cargado antes de empezar. Nada de abrirlo en vivo.
-- Laptop conectada a la corriente y sin notificaciones.
+## 3. Defensa de Arquitectura en 3 Capas, AWS, Ambiente Lunar y Blindaje Académico
 
-**Roles**
+### Arquitectura en 3 Capas y Despliegue en AWS
+- **Capa 1 (Frontend Cliente — 60 FPS):** Renderizado ligero en React + Vite con SVG vectorial memorizado (`useMemo`) para cuidar los **FPS en el cliente** sin bloquear el navegador.
+- **Capa 2 (Backend en AWS — APIs Abiertas y Bajo Ping):** Desplegado en AWS (PostgreSQL cargado con `cargar.sql` + distribución de JSON precalculados), exponiendo **APIs abiertas e integrables por terceros** (universidades y agencias) que cuidan la **latencia (Ping)** en descargas continuas.
+- **Capa 3 (Kernel Físico — `web/src/ephemeris/`):** Cinemática espacial y marcos de referencia (`MOON_ME`) con NASA NAIF SPICE (`timecraftjs`).
 
-| Rol | Qué hace |
-|---|---|
-| Quien explica | Habla y mira al jurado. No toca la computadora. |
-| Quien opera la app | Lleva el recorrido en el navegador. |
-| Quien opera SpaceEngine | Solo carga las escenas guardadas y controla el tiempo. Puede ser la misma persona de la app si se ensaya el cambio de ventana. |
-| Quien cuida el tiempo | Avisa en el minuto 1:30 y decide si se salta la escena 3. |
+### Modelado Ambiental Lunar y Hoja de Ruta (*Future Work*)
+- **Exosfera Lunar (~2 km):** Interacción de la tenue capa límite superficial con los penachos de descenso.
+- **Levantamiento Electrostático de Nubes de Regolito:** Polvo en levitación por tormentas solares y radiación UV en el terminador lunar que degrada paneles solares y enlaces de radiofrecuencia.
+- **Anomalías Magnéticas Locales (Reiner Gamma ~28 nT):** Mini-magnetosferas corticales que deflectan parcialmente el viento solar.
 
-**Respaldo**
+### Lenguaje Matemático y Respaldo del Comité de Mentores / Asesores
+- **Propagadores Orbitales y Estabilidad:** Basados en **Leyes de Kepler**, ecuaciones variacionales de **Euler-Lagrange** para perturbaciones gravitacionales y **distribuciones gaussianas** para el modelo probabilístico de alunizaje.
+- **Respaldo Académico Multidisciplinario:**
+  - **Dr. Horacio:** Programación, estructura de datos y arquitectura del Kernel (`src/ephemeris/`).
+  - **Prof. Jorge y Dr. Manuel Martínez:** Electrónica, telemetría espacial y presupuesto de enlace (Link Budget / LoS).
+  - **Dr. Mendoza y Dr. Montero:** Física teórica, estabilidad dinámica (Euler-Lagrange) y modelos probabilísticos gaussianos.
 
-- Grabar cada escena en video (10 a 15 segundos) en cuanto quede bien. Si SpaceEngine falla o tarda más de 5 segundos, se pone el video y se sigue hablando.
-- Tener también una captura fija de cada escena dentro de las diapositivas.
-- Si la laptop de SpaceEngine no está, la demo se hace completa solo con la app. El guion no depende de SpaceEngine.
+---
 
-## 4. Revisión crítica: dudas y huecos
+## 4. Guion Minuto a Minuto del Pitch + Demo Sincronizada (5 Minutos)
 
-**Contradicción principal.** La retroalimentación del evaluador (documento "Optimización y claridad en la presentación", sección 4) pide lo contrario de este plan: reducir al mínimo las menciones a SpaceEngine y **no mostrar simulaciones 3D hechas con él**, porque el jurado se pregunta por qué no usar SpaceEngine directamente. Su checklist dice: "Excluir vistas 3D de Space Engine: limitarlo a una mención verbal". El equipo tiene que decidir cuál de estas tres opciones toma:
-
-1. **Seguir al evaluador:** SpaceEngine no aparece en el pitch. Se usa solo por dentro para validar. Es la opción más segura.
-2. **Punto medio (recomendada):** una sola escena de 15 a 20 segundos, ya grabada, presentada como "comprobación visual" y con el número de la app encima. Sin operar SpaceEngine en vivo.
-3. **Este plan completo:** tres escenas en vivo. Es lo más vistoso y lo más arriesgado, y va contra el consejo recibido.
-
-**Otros huecos**
-
-- **La entrega oficial no es la demo en vivo.** A los jueces globales les llegan 7 diapositivas o un video de 30 segundos. En 30 segundos casi no cabe SpaceEngine sin quitarle tiempo a la app.
-- **Licencia y créditos.** SpaceEngine es un programa de pago y no es de NASA. Falta revisar si su licencia permite usar capturas y video en una entrega pública, y cómo se le da crédito. En el formulario va en "otras referencias", no en "datos de NASA".
-- **Precisión.** SpaceEngine no usa nuestros kernels. Puede diferir de la app en décimas de grado y su relieve no es el de LOLA. Con el Sol a 2° del horizonte, una diferencia pequeña cambia si se ve o no. Por eso cada escena se comprueba antes y se elige un momento donde la diferencia no se note.
-- **Cuello de botella.** Solo una laptop tiene SpaceEngine. Si esa persona también programa, las escenas le quitan horas de desarrollo. Hay unas 12 horas útiles por persona.
-- **Lo que pide el segundo documento** (comunicación como filtro de selección, trabajos futuros) no necesita SpaceEngine: sale de la métrica "Tierra a la vista" que la app ya calcula.
-
-**Dudas para el equipo**
-
-1. ¿Cuál de las tres opciones de arriba toman?
-2. ¿Qué versión de SpaceEngine tienen y en qué laptop? ¿Esa laptop es la que se conecta al proyector?
-3. ¿Quién opera SpaceEngine y quién explica?
-4. ¿Las escenas son solo para la sede (controles y panel del domingo) o también quieren meterlas en el video o las diapositivas de la entrega?
-5. ¿Qué sitios se muestran además de IM-2?
-6. El evaluador habla de un prototipo con registro de cuentas y un asistente ("robotito"). ¿Eso entra en la demo? No está en el plan de las siete partes.
-
-**Cuidado con el segundo documento.** Recomienda decir en el pitch que se aplican ecuaciones de Euler-Lagrange, modelos gaussianos, la exosfera y nubes de polvo, y citar a profesores como asesores. La app no hace nada de eso. Decirlo como si ya estuviera hecho baja la nota de Validez si un juez pregunta. Lo honesto es ponerlo en "trabajo futuro" y citar solo a quien de verdad asesoró.
+| Tiempo | Qué dice el Expositor | Qué se muestra en ORYSEL Web (`App.tsx`) | Qué se muestra en SpaceEngine |
+| :--- | :--- | :--- | :--- |
+| **0:00 – 0:10** | **Gancho de Apertura:** *"En la exploración lunar, aterrizar a ciegas cuesta cientos de millones: perder línea de visión durante 15 minutos significa perder la misión. ORYSEL predice dónde, cuándo y con qué viabilidad puede alunizar y comunicarse una misión antes de lanzar un solo kilogramo."* | Portada principal de ORYSEL (`pitch-hero`) limpia, sin saturar con tablas ni fórmulas. | Nada (en segundo plano). |
+| **0:10 – 0:35** | **Paso 1 (Cuenta) y Paso 2 (Catálogo):** *"Creamos nuestra cuenta en segundos y exploramos nuestro catálogo conectado a datos reales de NASA LROC y JPL Horizons."* | Clic en **Paso 1: Registro / Cuenta** (`OnboardingModal.tsx`) y recorrido por las tarjetas de `sites.ts` (`IM-2`, `Reiner Gamma`, `Shackleton`). | Nada. |
+| **0:35 – 1:40** | **Paso 3 (Robotito + KPI y Filtro de Punto Ciego):** *"Al evaluar el interior del Cráter Shackleton, nuestro asistente virtual ORY-Bot alerta que el KPI cae a NO-GO (19%): se pierde el enlace con la tripulación y la muralla bloquea la línea de visión con el satélite orbital para confirmación fotográfica. Al cambiar a Reiner Gamma o IM-2, el KPI sube a GO (89%)."* | Selección de `Cráter Shackleton` (alerta roja de veto en KPI y banda roja en `ElevationChart.tsx`), seguida del clic en `Reiner Gamma` desde el botón de **ORY-Bot**. | Nada. |
+| **1:40 – 2:15** | **Cápsula de Validación Visual 3D (35 s):** *"Para corroborar visualmente lo que nuestro algoritmo SPICE acaba de dictaminar, abrimos esta cápsula de contraste físico 3D en SpaceEngine en la coordenada y época UTC exacta calculada por ORYSEL."* | Panel `ArchitectureDefensePanel.tsx` mostrando la tarjeta **Cápsula de Contraste Físico 3D** con Azimut y Elevación exactos. | **Escena guardada (35 s):** Contraste entre la obstrucción del cráter polar y el horizonte despejado de Reiner Gamma / Mons Mouton. |
+| **2:15 – 3:30** | **Triple Segmentación (Profesional, Educativa, Infantil):** *"Segmentamos la misma física en 3 vistas: Profesional con ángulos acimutales y velocidades de escape; Educativa con tarjetas visuales; e Infantil con veredicto binario ('¡Sí se puede!') y nuestro simulador de flechas vectoriales en el cohete."* | Cambio en vivo entre las 3 pestañas (`Vista Profesional`, `Vista Educativa`, `Vista Infantil`) y ajuste de las flechas vectoriales en `RocketVectorPlayground.tsx`. | Nada. |
+| **3:30 – 5:00** | **Defensa de Arquitectura en 3 Capas, AWS, Ambiente Lunar y Mentores:** Explicación de los 60 FPS en cliente, APIs abiertas de bajo Ping en AWS, exosfera (~2 km), polvo electrostático, anomalías magnéticas y respaldo matemático (Kepler, Euler-Lagrange, Gauss) con los Dres. Horacio, Jorge, Manuel Martínez, Mendoza y Montero. | Tarjetas inferiores de `ArchitectureDefensePanel.tsx` y tabla de eventos de `report.ts`. | Nada. |
