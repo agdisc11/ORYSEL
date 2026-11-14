@@ -1,0 +1,12 @@
+node_modules/
+dist/
+kernels/
+.venv/
+__pycache__/
+.pytest_cache/
+out/
+*.pem
+*.env
+
+# first Python draft of the engine, replaced by web/src/ephemeris (TypeScript)
+backend/

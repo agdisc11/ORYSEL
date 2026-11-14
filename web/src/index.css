@@ -1,0 +1,47 @@
+:root {
+  --bg: #0d1016;
+  --panel: #151a23;
+  --ink: #e9ecf1;
+  --muted: #98a1b0;
+  --line: #2a3140;
+  --sun: #f2b53a;
+  --earth: #5fa8f5;
+  --day: rgba(242, 181, 58, 0.09);
+  font-family: system-ui, 'Segoe UI', Roboto, sans-serif;
+  color: var(--ink);
+  background: var(--bg);
+  line-height: 1.5;
+}
+
+* { box-sizing: border-box; }
+body { margin: 0; }
+main { max-width: 1040px; margin: 0 auto; padding: 32px 20px 48px; }
+
+h1 { font-size: 2rem; margin: 4px 0; line-height: 1.15; }
+h2 { font-size: 1.1rem; margin: 36px 0 4px; }
+.eyebrow { font-size: 0.78rem; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); margin: 0; }
+.muted { color: var(--muted); margin: 4px 0 12px; font-size: 0.92rem; }
+.error { color: #ff8f8f; }
+.mono { font-variant-numeric: tabular-nums; font-family: ui-monospace, Consolas, monospace; font-size: 0.9rem; }
+
+.metrics { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 12px; margin-top: 24px; }
+.metric { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; }
+.metric strong { display: block; font-size: 1.7rem; font-variant-numeric: tabular-nums; }
+.metric span { color: var(--muted); font-size: 0.88rem; }
+
+.chart { width: 100%; height: auto; background: var(--panel); border: 1px solid var(--line); border-radius: 10px; }
+.chart .grid { stroke: var(--line); stroke-width: 1; }
+.chart .horizon { stroke: var(--muted); stroke-width: 1.5; }
+.chart .day { fill: var(--day); }
+.chart .tick { fill: var(--muted); font-size: 12px; }
+.chart .line { fill: none; stroke-width: 2.5; stroke-linejoin: round; }
+.chart .line.sun { stroke: var(--sun); }
+.chart .line.earth { stroke: var(--earth); }
+.chart .label { font-size: 13px; font-weight: 600; }
+.chart .label.sun { fill: var(--sun); }
+.chart .label.earth { fill: var(--earth); }
+
+table { width: 100%; border-collapse: collapse; }
+th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--line); }
+th { color: var(--muted); font-weight: 500; font-size: 0.85rem; }
+footer { margin-top: 36px; }
