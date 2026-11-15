@@ -3133,3 +3133,980 @@ body {
     grid-template-columns: 1fr;
   }
 }
+
+
+/* ============================================================================
+   DISEÑOS COMPLETOS.PDF — AUDIENCE MODES (GENERAL / EDUCADOR / INFANTIL),
+   PEDAGOGICAL SKY CHART, HERE VS EARTH, ABOUT THE DATA & SPLIT LOGIN MODAL
+   ============================================================================ */
+
+.md-sheet-header-controls {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 8px;
+}
+
+.md-sheet-mode-pills {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px;
+  border-radius: 999px;
+  background: var(--bg-panel);
+  border: 1px solid var(--line);
+}
+
+/* General / Executive View */
+.md-exec-hero-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.55fr) minmax(300px, 1fr);
+  gap: 16px;
+  align-items: stretch;
+}
+
+.md-exec-site-summary {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.md-exec-desc {
+  font-size: 14px;
+  line-height: 1.55;
+  color: var(--text-primary);
+  margin: 4px 0;
+}
+
+.md-exec-meta-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 4px;
+}
+
+.md-exec-kpi-card {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 10px;
+  border-width: 1.5px;
+  background: radial-gradient(
+      circle at 85% 20%,
+      rgba(54, 217, 138, 0.16),
+      transparent 60%
+    ),
+    var(--bg-panel);
+}
+
+.md-exec-kpi-card.viable {
+  border-color: rgba(54, 217, 138, 0.55);
+  box-shadow: 0 0 28px rgba(54, 217, 138, 0.12);
+}
+
+.md-exec-kpi-card.marginal {
+  border-color: rgba(247, 179, 43, 0.55);
+}
+
+.md-exec-kpi-card.no-go {
+  border-color: rgba(255, 92, 108, 0.6);
+  background: radial-gradient(
+      circle at 85% 20%,
+      rgba(255, 92, 108, 0.16),
+      transparent 60%
+    ),
+    var(--bg-panel);
+}
+
+.md-exec-kpi-score-row {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+}
+
+.md-exec-kpi-big {
+  font-family: var(--font-display);
+  font-size: 48px;
+  line-height: 1;
+  font-weight: 700;
+  color: #ffffff;
+}
+
+.md-exec-kpi-card.viable .md-exec-kpi-big,
+.md-exec-kpi-card.viable .md-exec-kpi-verdict {
+  color: var(--viable);
+}
+
+.md-exec-kpi-card.no-go .md-exec-kpi-big,
+.md-exec-kpi-card.no-go .md-exec-kpi-verdict {
+  color: var(--not-viable);
+}
+
+.md-exec-kpi-verdict {
+  font-family: var(--font-display);
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+
+.md-exec-checks-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.05fr) minmax(0, 1.45fr);
+  gap: 16px;
+}
+
+.md-exec-checks-left {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.md-exec-check-card {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  border-left: 3px solid var(--viable);
+}
+
+.md-exec-check-card.veto {
+  border-left-color: var(--not-viable);
+}
+
+.md-exec-check-title {
+  font-size: 14px;
+  color: #ffffff;
+}
+
+.md-exec-check-card.ok .md-exec-check-title {
+  color: var(--viable);
+}
+
+.md-exec-check-card.veto .md-exec-check-title {
+  color: var(--not-viable);
+}
+
+.md-exec-subscores-2x2 {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.md-exec-subscore-box {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.md-exec-subscore-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  font-size: 13px;
+  color: var(--text-primary);
+}
+
+.md-team-verdict-container {
+  background: var(--bg-surface);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.md-team-model-verdict-box {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.md-team-score-inline {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  margin-top: 4px;
+}
+
+.md-team-score-inline strong {
+  font-family: var(--font-display);
+  font-size: 38px;
+  line-height: 1;
+  color: #ffffff;
+}
+
+.md-team-score-inline span {
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.md-team-pills-row {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-top: 4px;
+}
+
+.md-team-check-pill {
+  padding: 5px 12px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 500;
+  border: 1px solid var(--line-strong);
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.md-team-check-pill.ok {
+  color: var(--viable);
+  border-color: rgba(54, 217, 138, 0.35);
+  background: rgba(54, 217, 138, 0.08);
+}
+
+.md-team-check-pill.no {
+  color: var(--not-viable);
+  border-color: rgba(255, 92, 108, 0.4);
+  background: rgba(255, 92, 108, 0.08);
+}
+
+.md-four-bars-row {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.md-col-bar-item {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.md-col-bar-top {
+  display: flex;
+  justify-content: space-between;
+  font-size: 12.5px;
+  color: var(--text-secondary);
+}
+
+.md-col-bar-top strong {
+  color: #ffffff;
+}
+
+/* Pedagogical Sky Chart ("EXPLORA EL CIELO LUNAR" + "Luz solar y comunicación") */
+.md-pedagogical-sky-section {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.md-pedagogical-sky-card {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.md-pedagogical-sky-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.md-pedagogical-sky-svg {
+  width: 100%;
+  height: auto;
+  border-radius: 10px;
+  background: #141820;
+  border: 1px solid var(--line);
+}
+
+.md-pedagogical-sky-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.md-pedagogical-legend {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.md-pedagogical-slider-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 280px;
+}
+
+.md-sun-comm-split-card {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.md-sun-comm-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.md-sun-comm-box {
+  background: var(--bg-surface);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.md-sun-comm-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.md-sun-comm-head h4 {
+  margin: 0;
+  font-size: 15px;
+  color: #ffffff;
+}
+
+.md-sun-comm-icon {
+  font-size: 18px;
+}
+
+.md-sun-comm-text {
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--text-secondary);
+  margin: 0;
+}
+
+.md-sun-comm-stat {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-top: 8px;
+  margin-top: auto;
+  border-top: 1px solid var(--line);
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+/* Educator Mode: 3 Concept Cards + 6 Guided Metric Cards + Here vs Earth */
+.md-edu-three-cards {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.md-edu-concept-card {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  border-top: 2px solid rgba(247, 179, 43, 0.45);
+}
+
+.md-edu-concept-card:nth-child(2) {
+  border-top-color: rgba(59, 140, 255, 0.55);
+}
+
+.md-edu-concept-card:nth-child(3) {
+  border-top-color: rgba(54, 217, 138, 0.55);
+}
+
+.md-edu-body {
+  font-size: 13px;
+  line-height: 1.58;
+  color: var(--text-secondary);
+  margin: 0;
+}
+
+.md-edu-body strong {
+  color: #ffffff;
+}
+
+.md-six-metrics-row {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.md-edu-metric-card {
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 6px;
+}
+
+.md-edu-metric-val {
+  font-family: var(--font-display);
+  font-size: 24px;
+  font-weight: 700;
+  color: #ffffff;
+}
+
+.md-edu-metric-val.sun {
+  color: var(--sun);
+}
+
+.md-edu-metric-val.earth {
+  color: var(--earth);
+}
+
+.md-edu-metric-val.viable {
+  color: var(--viable);
+}
+
+/* Here vs. on Earth comparison table */
+.md-here-vs-earth-table {
+  display: flex;
+  flex-direction: column;
+  border-top: 1px solid var(--line);
+}
+
+.md-hve-row {
+  display: grid;
+  grid-template-columns: minmax(150px, 0.8fr) minmax(220px, 1.4fr) minmax(200px, 1.2fr);
+  gap: 16px;
+  padding: 12px 8px;
+  border-bottom: 1px solid var(--line);
+  align-items: center;
+  font-size: 13px;
+}
+
+.md-hve-head {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-muted);
+  font-weight: 600;
+}
+
+.md-hve-topic {
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+
+/* Kids View ("¿Es un buen lugar para explorar?") */
+.md-kids-hero-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr);
+  gap: 16px;
+}
+
+.md-kids-story-card {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 10px;
+}
+
+.md-kids-story-text {
+  font-size: 15px;
+  line-height: 1.6;
+  color: var(--text-primary);
+  margin: 0;
+}
+
+.md-kids-question-card {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  border-width: 1.5px;
+}
+
+.md-kids-question-card.viable {
+  border-color: rgba(54, 217, 138, 0.5);
+  background: radial-gradient(
+      circle at 90% 15%,
+      rgba(54, 217, 138, 0.14),
+      transparent 60%
+    ),
+    var(--bg-panel);
+}
+
+.md-kids-question-card.not-viable {
+  border-color: rgba(255, 92, 108, 0.55);
+  background: radial-gradient(
+      circle at 90% 15%,
+      rgba(255, 92, 108, 0.14),
+      transparent 60%
+    ),
+    var(--bg-panel);
+}
+
+.md-kids-question-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.md-kids-question-title {
+  font-family: var(--font-display);
+  font-size: 18px;
+  font-weight: 600;
+  color: #ffffff;
+  margin: 0;
+}
+
+.md-kids-score-big {
+  font-family: var(--font-display);
+  font-size: 46px;
+  line-height: 1.05;
+  font-weight: 700;
+  color: var(--viable);
+  margin-top: 4px;
+}
+
+.md-kids-question-card.not-viable .md-kids-score-big {
+  color: var(--not-viable);
+}
+
+.md-kids-verdict-phrase {
+  font-size: 16px;
+  font-weight: 600;
+  color: #ffffff;
+  margin: 6px 0 0;
+}
+
+.md-kids-three-checks {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.md-kids-check-tile {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  border-top: 3px solid var(--viable);
+}
+
+.md-kids-check-tile.no {
+  border-top-color: var(--not-viable);
+}
+
+.md-kids-emoji {
+  font-size: 26px;
+}
+
+.md-kids-check-tile h4 {
+  margin: 0;
+  font-size: 14.5px;
+  color: #ffffff;
+}
+
+.md-kids-answer {
+  font-size: 14px;
+  color: var(--viable);
+}
+
+.md-kids-check-tile.no .md-kids-answer {
+  color: var(--not-viable);
+}
+
+/* About the data stack */
+.md-about-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.md-about-sources-list {
+  display: flex;
+  flex-direction: column;
+  border-top: 1px solid var(--line);
+}
+
+.md-about-source-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.md-about-metrics-strip {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid var(--line);
+}
+
+.md-about-metrics-strip div {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.md-about-metrics-strip strong,
+.md-about-metrics-strip a {
+  font-family: var(--font-mono);
+  font-size: 14px;
+  color: #ffffff;
+}
+
+/* Split-screen MoonDial Auth / Profile Modal (from dc_moons.pdf) */
+.md-auth-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 130;
+  background: rgba(8, 10, 14, 0.84);
+  backdrop-filter: blur(8px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+
+.md-auth-split-card {
+  width: 100%;
+  max-width: 880px;
+  background: #161920;
+  border: 1px solid var(--line-strong);
+  border-radius: 16px;
+  overflow: hidden;
+  display: grid;
+  grid-template-columns: minmax(280px, 1fr) minmax(340px, 1.15fr);
+  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.75);
+}
+
+.md-auth-moon-pane {
+  background: radial-gradient(circle at 50% 42%, rgba(255, 255, 255, 0.06), #0d0f14 75%);
+  border-right: 1px solid var(--line);
+  padding: 26px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  align-items: center;
+  text-align: center;
+}
+
+.md-auth-brand-top {
+  align-self: flex-start;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.md-auth-moon-stage {
+  width: 240px;
+  height: 240px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.md-auth-moon-svg {
+  width: 100%;
+  height: 100%;
+}
+
+.md-auth-moon-caption p {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin: 4px 0 0;
+}
+
+.md-auth-form-pane {
+  padding: 26px 30px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.md-auth-tabs-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.md-auth-tabs {
+  display: inline-flex;
+  gap: 6px;
+  background: var(--bg-surface);
+  padding: 3px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+}
+
+.md-auth-tab {
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-weight: 600;
+  padding: 5px 14px;
+  border-radius: 999px;
+  cursor: pointer;
+}
+
+.md-auth-tab.active {
+  background: var(--text-primary);
+  color: #121418;
+}
+
+.md-auth-close {
+  border: 1px solid var(--line);
+  background: transparent;
+  color: var(--text-secondary);
+  width: 28px;
+  height: 28px;
+  border-radius: 999px;
+  cursor: pointer;
+}
+
+.md-auth-title {
+  font-family: var(--font-display);
+  font-size: 24px;
+  color: #ffffff;
+  margin: 2px 0 0;
+}
+
+.md-auth-subtitle {
+  font-size: 12.5px;
+  color: var(--text-secondary);
+  margin: 0;
+}
+
+.md-auth-form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 4px;
+}
+
+.md-auth-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.md-auth-field span {
+  font-size: 11.5px;
+  color: var(--text-secondary);
+}
+
+.md-auth-field input {
+  padding: 9px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--line-strong);
+  background: var(--bg-surface);
+  color: #ffffff;
+  font-size: 13px;
+}
+
+.md-auth-role-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.md-auth-role-btn {
+  padding: 9px 11px;
+  border-radius: 8px;
+  border: 1px solid var(--line);
+  background: var(--bg-surface);
+  color: var(--text-primary);
+  text-align: left;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.md-auth-role-btn strong {
+  font-size: 12.5px;
+  color: #ffffff;
+}
+
+.md-auth-role-btn small {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.md-auth-role-btn.selected {
+  border-color: var(--sun);
+  background: rgba(247, 179, 43, 0.1);
+}
+
+.md-auth-submit-btn {
+  margin-top: 4px;
+  padding: 10px 16px;
+  border-radius: 8px;
+  border: 1px solid var(--sun);
+  background: var(--sun);
+  color: #15120a;
+  font-weight: 700;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+@media (max-width: 1024px) {
+  .md-exec-hero-grid,
+  .md-exec-checks-grid,
+  .md-four-bars-row,
+  .md-sun-comm-grid,
+  .md-edu-three-cards,
+  .md-six-metrics-row,
+  .md-kids-hero-grid,
+  .md-kids-three-checks,
+  .md-about-metrics-strip,
+  .md-auth-split-card,
+  .md-hve-row {
+    grid-template-columns: 1fr;
+  }
+}
+
+
+/* ============================================================================
+   INTERACTIVE 3D SPACECRAFT & SMOKE-TRAIL SIMULATOR (RocketVectorPlayground)
+   Inspired by `ejemplo de nave.jpeg`
+   ============================================================================ */
+.md-spacecraft-sim-card {
+  background: var(--bg-panel);
+  border: 1px solid var(--line-strong);
+  border-radius: 14px;
+  padding: 20px 22px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.md-spacecraft-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.md-spacecraft-mode-pills {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.md-spacecraft-canvas-wrap {
+  position: relative;
+  width: 100%;
+  border-radius: 12px;
+  overflow: hidden;
+  border: 1px solid rgba(138, 110, 235, 0.28);
+  background: #131524;
+  box-shadow: inset 0 0 32px rgba(0, 0, 0, 0.55);
+}
+
+.md-spacecraft-canvas {
+  display: block;
+  width: 100%;
+  height: auto;
+  aspect-ratio: 860 / 390;
+  cursor: grab;
+  touch-action: none;
+}
+
+.md-spacecraft-canvas:active {
+  cursor: grabbing;
+}
+
+.md-spacecraft-waypoints-overlay {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.md-wp-btn {
+  padding: 4px 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: rgba(19, 21, 36, 0.78);
+  backdrop-filter: blur(6px);
+  color: #e4e6eb;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.md-wp-btn:hover {
+  border-color: #5ce1e6;
+  color: #5ce1e6;
+}
+
+.md-spacecraft-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  padding: 12px 16px;
+  border-radius: 10px;
+  background: var(--bg-surface);
+  border: 1px solid var(--line);
+  flex-wrap: wrap;
+}
+
+.md-fuel-indicator-block {
+  flex: 1;
+  min-width: 240px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.md-fuel-indicator-labels {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 12.5px;
+  color: var(--text-secondary);
+}
+
+.md-fuel-indicator-labels strong {
+  font-family: var(--font-mono);
+  color: #5ce1e6;
+}
+
+.md-fuel-slider {
+  width: 100%;
+  accent-color: #3b8cff;
+  cursor: pointer;
+}
+
+.md-spacecraft-stage-banner {
+  padding: 12px 16px;
+  border-radius: 10px;
+  background: rgba(54, 217, 138, 0.08);
+  border-left: 4px solid var(--viable);
+}
+
+.md-spacecraft-stage-banner.warn {
+  background: rgba(255, 92, 108, 0.09);
+  border-left-color: var(--not-viable);
+}
+
+.md-spacecraft-stage-banner p {
+  margin: 0;
+  font-size: 13.5px;
+  color: var(--text-primary);
+}

@@ -3,19 +3,26 @@ import type { Sample, Site, SiteReport } from '../ephemeris/types.ts'
 export interface OrbitalPositionProps {
   sample: Sample
   siteName: string
+  lang?: 'es' | 'en'
 }
 
 /**
  * Cenital Orbital Position diagram ("GEOMETRÍA LOCAL · Posición orbital · VISTA CENITAL")
- * matching Cambios a realizar.png and Diseños.pdf.
+ * using the real photographic Moon from Diseños completos.pdf.
  */
-export function OrbitalPositionCenital({ sample }: OrbitalPositionProps) {
+export function OrbitalPositionCenital({ sample, lang = 'es' }: OrbitalPositionProps) {
   const cx = 180
   const cy = 180
   const rOuter = 132
   const rMid = 104
   const rInner = 76
-  const rMoon = 46
+  const rMoon = 50
+
+  // Map the exact Moon disk (cx=626.5, cy=586, r=493 in 1200x1200 moon-real.jpg) to (cx=180, cy=180, r=50)
+  const imgSize = 1200 * (rMoon / 493)
+  const imgX = cx - 626.5 * (rMoon / 493)
+  const imgY = cy - 586.0 * (rMoon / 493)
+  const moonUrl = `${import.meta.env.BASE_URL}moon-real.jpg`
 
   // Convert azimuth (0 deg = North/up, 90 deg = East/right) to SVG coordinates
   const sunRad = ((sample.sun_az - 90) * Math.PI) / 180
@@ -31,24 +38,36 @@ export function OrbitalPositionCenital({ sample }: OrbitalPositionProps) {
     <div className="md-orbital-card">
       <div className="md-orbital-head">
         <div>
-          <span className="md-eyebrow">GEOMETRÍA LOCAL</span>
-          <h3 className="md-h2">Posición orbital</h3>
+          <span className="md-eyebrow">
+            {lang === 'es' ? 'GEOMETRÍA LOCAL' : 'LOCAL GEOMETRY'}
+          </span>
+          <h3 className="md-h2">
+            {lang === 'es' ? 'Posición orbital' : 'Orbital position'}
+          </h3>
         </div>
-        <span className="md-meta-label">VISTA CENITAL</span>
+        <span className="md-meta-label">
+          {lang === 'es' ? 'VISTA CENITAL' : 'TOP-DOWN VIEW'}
+        </span>
       </div>
 
       <svg
         viewBox="0 0 360 360"
         className="md-orbital-svg"
         role="img"
-        aria-label="Posición orbital cenital del Sol y la Tierra respecto a la Luna"
+        aria-label={
+          lang === 'es'
+            ? 'Posición orbital cenital del Sol y la Tierra respecto a la Luna'
+            : 'Top-down orbital position of the Sun and Earth relative to the Moon'
+        }
       >
         <defs>
-          <radialGradient id="moonSphereGrad" cx="38%" cy="35%" r="65%">
-            <stop offset="0%" stopColor="#F3F4F6" />
-            <stop offset="42%" stopColor="#9CA3AF" />
-            <stop offset="78%" stopColor="#4B5563" />
-            <stop offset="100%" stopColor="#1F2937" />
+          <clipPath id="cenitalMoonClip">
+            <circle cx={cx} cy={cy} r={rMoon} />
+          </clipPath>
+          <radialGradient id="cenitalMoonHalo" cx="50%" cy="50%" r="50%">
+            <stop offset="0%" stopColor="#8CBBFF" stopOpacity="0.28" />
+            <stop offset="70%" stopColor="#3B8CFF" stopOpacity="0.06" />
+            <stop offset="100%" stopColor="#3B8CFF" stopOpacity="0" />
           </radialGradient>
           <radialGradient id="sunOrbGlow" cx="50%" cy="50%" r="50%">
             <stop offset="0%" stopColor="#FFD98A" stopOpacity="1" />
@@ -92,20 +111,26 @@ export function OrbitalPositionCenital({ sample }: OrbitalPositionProps) {
           strokeDasharray="6 7"
         />
 
-        {/* Lunar globe in center with realistic mare/crater patches */}
+        {/* Subtle halo + Real photographic Moon in center */}
+        <circle cx={cx} cy={cy} r={rMoon + 12} fill="url(#cenitalMoonHalo)" />
+        <g clipPath="url(#cenitalMoonClip)">
+          <image
+            href={moonUrl}
+            x={imgX}
+            y={imgY}
+            width={imgSize}
+            height={imgSize}
+            preserveAspectRatio="none"
+          />
+        </g>
         <circle
           cx={cx}
           cy={cy}
           r={rMoon}
-          fill="url(#moonSphereGrad)"
+          fill="none"
           stroke="rgba(255,255,255,0.22)"
           strokeWidth="1.2"
         />
-        <circle cx={cx - 12} cy={cy - 10} r={11} fill="rgba(31, 41, 55, 0.36)" />
-        <circle cx={cx + 8} cy={cy - 14} r={8.5} fill="rgba(31, 41, 55, 0.32)" />
-        <circle cx={cx - 16} cy={cy + 10} r={7.5} fill="rgba(31, 41, 55, 0.28)" />
-        <circle cx={cx + 14} cy={cy + 12} r={6} fill="rgba(255, 255, 255, 0.18)" />
-        <circle cx={cx - 3} cy={cy + 18} r={4.5} fill="rgba(31, 41, 55, 0.3)" />
 
         {/* Earth Orb */}
         <g transform={`translate(${earthX}, ${earthY})`}>
@@ -117,7 +142,7 @@ export function OrbitalPositionCenital({ sample }: OrbitalPositionProps) {
             textAnchor={earthX < cx ? 'end' : 'start'}
             className="md-orb-label"
           >
-            TIERRA
+            {lang === 'es' ? 'TIERRA' : 'EARTH'}
           </text>
         </g>
 
@@ -131,20 +156,20 @@ export function OrbitalPositionCenital({ sample }: OrbitalPositionProps) {
             textAnchor={sunX < cx ? 'end' : 'start'}
             className="md-orb-label sun"
           >
-            SOL
+            {lang === 'es' ? 'SOL' : 'SUN'}
           </text>
         </g>
       </svg>
 
       <div className="md-orbital-legend">
         <span>
-          <i className="md-dot sun" /> Sol
+          <i className="md-dot sun" /> {lang === 'es' ? 'Sol' : 'Sun'}
         </span>
         <span>
-          <i className="md-dot earth" /> Tierra
+          <i className="md-dot earth" /> {lang === 'es' ? 'Tierra' : 'Earth'}
         </span>
         <span>
-          <i className="md-line-swatch" /> Trayectoria
+          <i className="md-line-swatch" /> {lang === 'es' ? 'Trayectoria' : 'Trajectory'}
         </span>
       </div>
     </div>
@@ -154,13 +179,13 @@ export function OrbitalPositionCenital({ sample }: OrbitalPositionProps) {
 export interface LocalHorizonProps {
   report: SiteReport
   sample: Sample
+  lang?: 'es' | 'en'
 }
 
 /**
- * Local Horizon & Terrain profile (0° N to 360° azimuth) + Sky Visibility Radar
- * inspired by zoom8_navigator_sky.pdf in Diseños.pdf.
+ * Local Horizon & Terrain profile (0° N to 360° azimuth) + Sky Visibility Radar.
  */
-export function LocalHorizonAndSkyRow({ report, sample }: LocalHorizonProps) {
+export function LocalHorizonAndSkyRow({ report, sample, lang = 'es' }: LocalHorizonProps) {
   const W = 620
   const H = 220
   const PAD = { l: 38, r: 24, t: 20, b: 30 }
@@ -215,8 +240,14 @@ export function LocalHorizonAndSkyRow({ report, sample }: LocalHorizonProps) {
       <div className="md-panel">
         <div className="md-panel-header-row">
           <div>
-            <h3 className="md-h2">Local horizon &amp; terrain</h3>
-            <p className="md-caption">Elevation angle by azimuth ({report.site.name})</p>
+            <h3 className="md-h2">
+              {lang === 'es' ? 'Horizonte local y terreno' : 'Local horizon & terrain'}
+            </h3>
+            <p className="md-caption">
+              {lang === 'es'
+                ? `Ángulo de elevación por acimut (${report.site.name})`
+                : `Elevation angle by azimuth (${report.site.name})`}
+            </p>
           </div>
           <span className="md-tag-pill">SPICE DE440 · LOLA</span>
         </div>
@@ -225,74 +256,38 @@ export function LocalHorizonAndSkyRow({ report, sample }: LocalHorizonProps) {
           viewBox={`0 0 ${W} ${H}`}
           className="md-horizon-svg"
           role="img"
-          aria-label="Perfil de horizonte local de 360 grados"
+          aria-label={
+            lang === 'es'
+              ? 'Perfil de horizonte local de 360 grados'
+              : '360-degree local horizon profile'
+          }
         >
           <defs>
             <linearGradient id="terrainFillGrad" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor="#94A3B8" stopOpacity="0.22" />
-              <stop offset="100%" stopColor="#0F172A" stopOpacity="0.04" />
+              <stop offset="0%" stopColor="#3B8CFF" stopOpacity="0.24" />
+              <stop offset="100%" stopColor="#12161F" stopOpacity="0.88" />
             </linearGradient>
           </defs>
 
-          {[
-            minEl,
-            Math.round((minEl + maxEl) / 3),
-            Math.round(((minEl + maxEl) * 2) / 3),
-            maxEl,
-          ].map((tick) => (
-            <g key={tick}>
-              <line
-                x1={PAD.l}
-                x2={W - PAD.r}
-                y1={yEl(tick)}
-                y2={yEl(tick)}
-                stroke="rgba(255,255,255,0.07)"
-                strokeDasharray="3 4"
-              />
-              <text x={PAD.l - 8} y={yEl(tick) + 4} textAnchor="end" className="tick">
-                {tick}°
-              </text>
-            </g>
-          ))}
-
-          <path d={terrainArea} fill="url(#terrainFillGrad)" />
-          <path d={terrainLine} fill="none" stroke="rgba(203, 213, 225, 0.55)" strokeWidth="2" />
-
-          {/* Sun stem & dot */}
-          <line
-            x1={xAz(sample.sun_az)}
-            x2={xAz(sample.sun_az)}
-            y1={yEl(sample.sun_el)}
-            y2={H - PAD.b}
-            stroke="rgba(247, 179, 43, 0.45)"
-            strokeDasharray="3 3"
-          />
-          <circle cx={xAz(sample.sun_az)} cy={yEl(sample.sun_el)} r={5.5} fill="#F7B32B" />
-          <text
-            x={Math.min(W - PAD.r - 45, Math.max(PAD.l + 10, xAz(sample.sun_az) + 8))}
-            y={Math.max(PAD.t + 12, yEl(sample.sun_el) - 6)}
-            className="md-marker-label sun"
-          >
-            SUN {sample.sun_el.toFixed(1)}°
-          </text>
-
-          {/* Earth stem & dot */}
-          <line
-            x1={xAz(sample.earth_az)}
-            x2={xAz(sample.earth_az)}
-            y1={yEl(sample.earth_el)}
-            y2={H - PAD.b}
-            stroke="rgba(59, 140, 255, 0.45)"
-            strokeDasharray="3 3"
-          />
-          <circle cx={xAz(sample.earth_az)} cy={yEl(sample.earth_el)} r={5.5} fill="#3B8CFF" />
-          <text
-            x={Math.min(W - PAD.r - 55, Math.max(PAD.l + 10, xAz(sample.earth_az) + 8))}
-            y={Math.max(PAD.t + 12, yEl(sample.earth_el) - 6)}
-            className="md-marker-label earth"
-          >
-            EARTH {sample.earth_el.toFixed(1)}°
-          </text>
+          {[0, 5, 10, 15].map((deg) => {
+            if (deg > maxEl) return null
+            const y = yEl(deg)
+            return (
+              <g key={deg}>
+                <line
+                  x1={PAD.l}
+                  x2={W - PAD.r}
+                  y1={y}
+                  y2={y}
+                  stroke="rgba(255,255,255,0.07)"
+                  strokeDasharray={deg === 0 ? undefined : '4 4'}
+                />
+                <text x={PAD.l - 6} y={y + 4} textAnchor="end" className="tick">
+                  {deg}°
+                </text>
+              </g>
+            )
+          })}
 
           {[
             { az: 0, label: '0° N' },
@@ -300,22 +295,56 @@ export function LocalHorizonAndSkyRow({ report, sample }: LocalHorizonProps) {
             { az: 180, label: '180° S' },
             { az: 270, label: '270° W' },
             { az: 360, label: '360°' },
-          ].map((item) => (
-            <text key={item.az} x={xAz(item.az)} y={H - 8} textAnchor="middle" className="tick">
-              {item.label}
-            </text>
+          ].map((t) => (
+            <g key={t.az}>
+              <line
+                x1={xAz(t.az)}
+                x2={xAz(t.az)}
+                y1={PAD.t}
+                y2={H - PAD.b}
+                stroke="rgba(255,255,255,0.05)"
+              />
+              <text x={xAz(t.az)} y={H - 8} textAnchor="middle" className="tick">
+                {t.label}
+              </text>
+            </g>
           ))}
+
+          <path d={terrainArea} fill="url(#terrainFillGrad)" />
+          <path d={terrainLine} fill="none" stroke="rgba(140, 187, 255, 0.55)" strokeWidth="2" />
+
+          <g
+            transform={`translate(${xAz(((sample.sun_az % 360) + 360) % 360)}, ${yEl(
+              Math.max(minEl, Math.min(maxEl, sample.sun_el)),
+            )})`}
+          >
+            <circle r={6.5} fill="#F7B32B" stroke="#1A1A1A" strokeWidth="1.5" />
+            <text x={10} y={4} className="md-marker-label sun">
+              {lang === 'es' ? 'Sol' : 'Sun'} {sample.sun_el.toFixed(1)}°
+            </text>
+          </g>
+
+          <g
+            transform={`translate(${xAz(((sample.earth_az % 360) + 360) % 360)}, ${yEl(
+              Math.max(minEl, Math.min(maxEl, sample.earth_el)),
+            )})`}
+          >
+            <circle r={6.5} fill="#3B8CFF" stroke="#1A1A1A" strokeWidth="1.5" />
+            <text x={10} y={4} className="md-marker-label earth">
+              {lang === 'es' ? 'Tierra' : 'Earth'} {sample.earth_el.toFixed(1)}°
+            </text>
+          </g>
         </svg>
 
         <div className="md-orbital-legend">
           <span>
-            <i className="md-line-swatch" /> Local terrain
+            <i className="md-dot earth" /> {lang === 'es' ? 'Horizonte terreno' : 'Terrain horizon'}
           </span>
           <span>
-            <i className="md-dot sun" /> Sun
+            <i className="md-dot sun" /> {lang === 'es' ? 'Posición Sol' : 'Sun position'}
           </span>
           <span>
-            <i className="md-dot earth" /> Earth
+            <i className="md-dot earth" /> {lang === 'es' ? 'Posición Tierra' : 'Earth position'}
           </span>
         </div>
       </div>
@@ -324,34 +353,34 @@ export function LocalHorizonAndSkyRow({ report, sample }: LocalHorizonProps) {
       <div className="md-panel">
         <div className="md-panel-header-row">
           <div>
-            <h3 className="md-h2">Sky visibility</h3>
-            <p className="md-caption">Position relative to local terrain mask</p>
+            <h3 className="md-h2">
+              {lang === 'es' ? 'Visibilidad del cielo' : 'Sky visibility'}
+            </h3>
+            <p className="md-caption">
+              {lang === 'es' ? 'Vista polar · Cenit al horizonte' : 'Polar view · Zenith to horizon'}
+            </p>
           </div>
-          <span className="md-info-circle" title="Proyección polar acimutal (N, E, S, W)">
+          <span className="md-info-circle" title="Proyección polar estereográfica">
             i
           </span>
         </div>
 
         <div className="md-sky-radar-layout">
-          <svg
-            viewBox="0 0 190 190"
-            className="md-sky-radar-svg"
-            role="img"
-            aria-label="Radar polar de visibilidad del cielo"
-          >
+          <svg viewBox="0 0 190 190" className="md-sky-radar-svg">
             <circle
               cx={rCx}
               cy={rCy}
               r={rMax}
-              fill="rgba(15, 23, 42, 0.55)"
-              stroke="rgba(255,255,255,0.12)"
+              fill="rgba(15, 20, 28, 0.9)"
+              stroke="rgba(255,255,255,0.16)"
+              strokeWidth="1.2"
             />
             <circle
               cx={rCx}
               cy={rCy}
               r={rMax * 0.66}
               fill="none"
-              stroke="rgba(255,255,255,0.08)"
+              stroke="rgba(255,255,255,0.1)"
               strokeDasharray="3 3"
             />
             <circle
@@ -359,66 +388,90 @@ export function LocalHorizonAndSkyRow({ report, sample }: LocalHorizonProps) {
               cy={rCy}
               r={rMax * 0.33}
               fill="none"
-              stroke="rgba(255,255,255,0.08)"
+              stroke="rgba(255,255,255,0.1)"
               strokeDasharray="3 3"
             />
             <line
               x1={rCx}
-              y1={rCy - rMax}
               x2={rCx}
+              y1={rCy - rMax}
               y2={rCy + rMax}
-              stroke="rgba(255,255,255,0.07)"
+              stroke="rgba(255,255,255,0.08)"
             />
             <line
               x1={rCx - rMax}
-              y1={rCy}
               x2={rCx + rMax}
+              y1={rCy}
               y2={rCy}
-              stroke="rgba(255,255,255,0.07)"
+              stroke="rgba(255,255,255,0.08)"
             />
-
-            <text x={rCx} y={rCy - rMax + 11} textAnchor="middle" className="tick">
+            <text x={rCx} y={rCy - rMax - 6} textAnchor="middle" className="tick">
               N
             </text>
-            <text x={rCx + rMax - 8} y={rCy + 4} textAnchor="middle" className="tick">
+            <text x={rCx + rMax + 9} y={rCy + 3} textAnchor="middle" className="tick">
               E
             </text>
-            <text x={rCx} y={rCy + rMax - 5} textAnchor="middle" className="tick">
+            <text x={rCx} y={rCy + rMax + 13} textAnchor="middle" className="tick">
               S
             </text>
-            <text x={rCx - rMax + 9} y={rCy + 4} textAnchor="middle" className="tick">
+            <text x={rCx - rMax - 9} y={rCy + 3} textAnchor="middle" className="tick">
               W
             </text>
 
-            {/* Sun marker */}
-            <circle cx={sunPolar.x} cy={sunPolar.y} r={8} fill="rgba(247, 179, 43, 0.22)" />
-            <circle cx={sunPolar.x} cy={sunPolar.y} r={4.5} fill="#F7B32B" />
-
-            {/* Earth marker */}
-            <circle cx={earthPolar.x} cy={earthPolar.y} r={8} fill="rgba(59, 140, 255, 0.22)" />
-            <circle cx={earthPolar.x} cy={earthPolar.y} r={4.5} fill="#3B8CFF" />
+            <circle
+              cx={sunPolar.x}
+              cy={sunPolar.y}
+              r={6}
+              fill="#F7B32B"
+              stroke="#111"
+              strokeWidth="1.5"
+            />
+            <circle
+              cx={earthPolar.x}
+              cy={earthPolar.y}
+              r={6}
+              fill="#3B8CFF"
+              stroke="#111"
+              strokeWidth="1.5"
+            />
           </svg>
 
           <div className="md-sky-readouts">
             <div className="md-sky-readout-item">
               <div className="md-sky-readout-title">
-                <span className="md-dot sun" /> Sun
+                <span className="md-dot sun" /> {lang === 'es' ? 'Sol' : 'Sun'}
               </div>
               <div className="md-sky-readout-val">{sample.sun_el.toFixed(1)}°</div>
-              <div className="md-caption">Elevation · AZ {sample.sun_az.toFixed(1)}°</div>
+              <div className="md-caption">
+                {lang === 'es' ? 'Elevación' : 'Elevation'} · AZ {sample.sun_az.toFixed(1)}°
+              </div>
               <span className={`md-status-tag ${sample.sun_visible ? 'viable' : 'not-viable'}`}>
-                {sample.sun_visible ? 'VISIBLE' : 'OCCULTED'}
+                {sample.sun_visible
+                  ? lang === 'es'
+                    ? 'VISIBLE'
+                    : 'VISIBLE'
+                  : lang === 'es'
+                    ? 'OCULTO'
+                    : 'OCCULTED'}
               </span>
             </div>
 
             <div className="md-sky-readout-item">
               <div className="md-sky-readout-title">
-                <span className="md-dot earth" /> Earth
+                <span className="md-dot earth" /> {lang === 'es' ? 'Tierra' : 'Earth'}
               </div>
               <div className="md-sky-readout-val">{sample.earth_el.toFixed(1)}°</div>
-              <div className="md-caption">Elevation · AZ {sample.earth_az.toFixed(1)}°</div>
+              <div className="md-caption">
+                {lang === 'es' ? 'Elevación' : 'Elevation'} · AZ {sample.earth_az.toFixed(1)}°
+              </div>
               <span className={`md-status-tag ${sample.earth_visible ? 'viable' : 'not-viable'}`}>
-                {sample.earth_visible ? 'VISIBLE' : 'OCCULTED'}
+                {sample.earth_visible
+                  ? lang === 'es'
+                    ? 'VISIBLE'
+                    : 'VISIBLE'
+                  : lang === 'es'
+                    ? 'OCULTO'
+                    : 'OCCULTED'}
               </span>
             </div>
           </div>
@@ -431,13 +484,13 @@ export function LocalHorizonAndSkyRow({ report, sample }: LocalHorizonProps) {
 export interface OutlookBarProps {
   report: SiteReport
   selectedIndex: number
+  lang?: 'es' | 'en'
 }
 
 /**
- * 24-hour / Window Outlook bars for Sunlit & DTE access with NOW marker,
- * matching zoom3_midtop.pdf & 08 / WINDOW BAR in zoom2_designsystem.pdf.
+ * 24-hour / Window Outlook bars for Sunlit & DTE access with NOW marker.
  */
-export function TwentyFourHourOutlook({ report, selectedIndex }: OutlookBarProps) {
+export function TwentyFourHourOutlook({ report, selectedIndex, lang = 'es' }: OutlookBarProps) {
   const total = Math.max(1, report.series.length - 1)
   const nowPct = Math.min(96, Math.max(4, (selectedIndex / total) * 100))
 
@@ -462,15 +515,21 @@ export function TwentyFourHourOutlook({ report, selectedIndex }: OutlookBarProps
     <div className="md-outlook-box">
       <div className="md-outlook-header">
         <div>
-          <h3 className="md-h2">24-hour outlook</h3>
-          <p className="md-caption">Illumination and direct-to-Earth access</p>
+          <h3 className="md-h2">
+            {lang === 'es' ? 'Perspectiva de 24 horas' : '24-hour outlook'}
+          </h3>
+          <p className="md-caption">
+            {lang === 'es'
+              ? 'Iluminación solar y acceso directo a la Tierra'
+              : 'Illumination and direct-to-Earth access'}
+          </p>
         </div>
         <div className="md-outlook-legend">
           <span>
-            <i className="md-sq sun" /> Sunlit
+            <i className="md-sq sun" /> {lang === 'es' ? 'Luz solar' : 'Sunlit'}
           </span>
           <span>
-            <i className="md-sq earth" /> DTE access
+            <i className="md-sq earth" /> {lang === 'es' ? 'Acceso DTE' : 'DTE access'}
           </span>
         </div>
       </div>
@@ -485,8 +544,8 @@ export function TwentyFourHourOutlook({ report, selectedIndex }: OutlookBarProps
 
       <div className="md-outlook-track-row">
         <div className="md-outlook-track-label">
-          <strong>Sun</strong>
-          <span>Solar illumination</span>
+          <strong>{lang === 'es' ? 'Sol' : 'Sun'}</strong>
+          <span>{lang === 'es' ? 'Iluminación solar' : 'Solar illumination'}</span>
         </div>
         <div className="md-outlook-track">
           {sunWindows.length > 0 ? (
@@ -507,7 +566,7 @@ export function TwentyFourHourOutlook({ report, selectedIndex }: OutlookBarProps
             />
           )}
           <div className="md-outlook-now-marker" style={{ left: `${nowPct}%` }}>
-            <span>NOW</span>
+            <span>{lang === 'es' ? 'AHORA' : 'NOW'}</span>
           </div>
         </div>
       </div>
@@ -515,7 +574,7 @@ export function TwentyFourHourOutlook({ report, selectedIndex }: OutlookBarProps
       <div className="md-outlook-track-row">
         <div className="md-outlook-track-label">
           <strong>DTE</strong>
-          <span>Earth LOS</span>
+          <span>{lang === 'es' ? 'Línea a Tierra' : 'Earth LOS'}</span>
         </div>
         <div className="md-outlook-track">
           {earthWindows.length > 0 ? (
@@ -542,6 +601,206 @@ export function TwentyFourHourOutlook({ report, selectedIndex }: OutlookBarProps
   )
 }
 
+export interface PedagogicalSkyProps {
+  report: SiteReport
+  sample: Sample
+  lang?: 'es' | 'en'
+}
+
+/**
+ * Simplified pedagogical Sky & Communication section ("EXPLORA EL CIELO LUNAR ·
+ * El Sol y la Tierra vistos desde la Luna" + "Luz solar y comunicación")
+ * from dc_sheet2_edu.pdf in Diseños completos.pdf.
+ */
+export function PedagogicalSkyChart({ report, sample, lang = 'es' }: PedagogicalSkyProps) {
+  const W = 540
+  const H = 220
+  const PAD = { l: 42, r: 34, t: 18, b: 32 }
+
+  const n = Math.max(1, report.series.length - 1)
+  const xAt = (idx: number) => PAD.l + (idx / n) * (W - PAD.l - PAD.r)
+  const yAt = (el: number) => PAD.t + ((90 - el) / 180) * (H - PAD.t - PAD.b)
+
+  const sunPath = report.series
+    .map((s, i) => `${i ? 'L' : 'M'}${xAt(i).toFixed(1)},${yAt(s.sun_el).toFixed(1)}`)
+    .join('')
+  const earthPath = report.series
+    .map((s, i) => `${i ? 'L' : 'M'}${xAt(i).toFixed(1)},${yAt(s.earth_el).toFixed(1)}`)
+    .join('')
+
+  const sunPct = Math.max(6, Math.min(100, report.metrics.sun_visible_pct))
+  const earthPct = Math.max(6, Math.min(100, report.metrics.earth_visible_pct))
+
+  return (
+    <section className="md-mission-control-card">
+      <div className="md-mission-control-grid">
+        {/* Left: Simplified Sky Chart */}
+        <div className="md-mc-chart-col">
+          <span className="md-eyebrow">
+            {lang === 'es' ? 'EXPLORA EL CIELO LUNAR' : 'EXPLORE THE LUNAR SKY'}
+          </span>
+          <h2 className="md-h1">
+            {lang === 'es'
+              ? 'El Sol y la Tierra vistos desde la Luna'
+              : 'The Sun and Earth seen from the Moon'}
+          </h2>
+          <p className="md-caption">
+            {report.site.name} ·{' '}
+            {lang === 'es'
+              ? '14 nov — 14 dic 2026 · La altura se mide en grados (°), no en kilómetros.'
+              : 'Nov 14 — Dec 14, 2026 · Height is measured in degrees (°), not kilometers.'}
+          </p>
+
+          <div className="md-mc-readout-strip" style={{ marginTop: '12px' }}>
+            <div className="md-mc-epoch-box">
+              <span>
+                {lang === 'es' ? 'Lectura del' : 'Reading at'}{' '}
+                {sample.t.slice(0, 16).replace('T', ' ')} UTC
+              </span>
+            </div>
+            <div className="md-mc-body-readout">
+              <span className="md-sun-text">
+                {lang === 'es' ? 'Sol' : 'Sun'} <strong>{sample.sun_el.toFixed(2)}°</strong>
+              </span>
+            </div>
+            <div className="md-mc-body-readout">
+              <span className="md-earth-text">
+                {lang === 'es' ? 'Tierra' : 'Earth'}{' '}
+                <strong>{sample.earth_el.toFixed(2)}°</strong>
+              </span>
+            </div>
+          </div>
+
+          <div className="md-caption" style={{ marginBottom: '4px' }}>
+            {lang === 'es' ? 'Altura sobre el horizonte (°)' : 'Height above the horizon (°)'}
+          </div>
+
+          <svg viewBox={`0 0 ${W} ${H}`} className="md-elevation-svg">
+            <line
+              x1={PAD.l}
+              x2={W - PAD.r}
+              y1={yAt(90)}
+              y2={yAt(90)}
+              className="grid"
+            />
+            <text x={PAD.l - 8} y={yAt(90) + 4} textAnchor="end" className="tick">
+              90°
+            </text>
+
+            <line
+              x1={PAD.l}
+              x2={W - PAD.r}
+              y1={yAt(0)}
+              y2={yAt(0)}
+              className="horizon"
+            />
+            <text x={PAD.l - 8} y={yAt(0) + 4} textAnchor="end" className="tick">
+              0°
+            </text>
+            <text x={W - PAD.r - 8} y={yAt(0) + 14} textAnchor="end" className="horizon-label">
+              {lang === 'es' ? '0° · Horizonte' : '0° · Horizon'}
+            </text>
+
+            <line
+              x1={PAD.l}
+              x2={W - PAD.r}
+              y1={yAt(-90)}
+              y2={yAt(-90)}
+              className="grid"
+            />
+            <text x={PAD.l - 8} y={yAt(-90) + 4} textAnchor="end" className="tick">
+              -90°
+            </text>
+
+            <path d={sunPath} className="line sun" />
+            <path d={earthPath} className="line earth" />
+
+            <text x={PAD.l} y={H - 8} className="tick">
+              {lang === 'es' ? '14 nov' : 'Nov 14'}
+            </text>
+            <text x={W / 2} y={H - 8} textAnchor="middle" className="tick">
+              {lang === 'es' ? '29 nov' : 'Nov 29'}
+            </text>
+            <text x={W - PAD.r} y={H - 8} textAnchor="end" className="tick">
+              {lang === 'es' ? '14 dic' : 'Dec 14'}
+            </text>
+          </svg>
+        </div>
+
+        {/* Right: Pedagogical 1. Luz del Sol & 2. Vista hacia la Tierra */}
+        <div className="md-mc-outlook-col">
+          <div className="md-outlook-box">
+            <div>
+              <h3 className="md-h2">
+                {lang === 'es' ? 'Luz solar y comunicación' : 'Sunlight and communication'}
+              </h3>
+              <p className="md-caption" style={{ marginTop: '4px' }}>
+                {lang === 'es'
+                  ? 'Lee de izquierda a derecha. Las barras muestran un periodo de 24 horas en un sitio de la Luna.'
+                  : 'Read from left to right. The bars show a 24-hour period at this site on the Moon.'}
+              </p>
+            </div>
+
+            <div className="md-pedagogical-bar-block">
+              <strong className="md-sun-text">
+                {lang === 'es' ? '1. Luz del Sol' : '1. Sunlight'}
+              </strong>
+              <span className="md-caption">
+                {lang === 'es'
+                  ? 'Amarillo: el sitio recibe luz del Sol para energía solar.'
+                  : 'Yellow: the site receives sunlight for solar power.'}
+              </span>
+              <div className="md-outlook-track" style={{ marginTop: '6px' }}>
+                <div
+                  className="md-outlook-fill sun"
+                  style={{ left: '0%', width: `${sunPct}%` }}
+                />
+              </div>
+              <div className="md-time-slider-ticks" style={{ marginTop: '4px' }}>
+                <span>00:00</span>
+                <span>06:00</span>
+                <span>12:00</span>
+                <span>18:00</span>
+                <span>24:00</span>
+              </div>
+            </div>
+
+            <div className="md-pedagogical-bar-block">
+              <strong className="md-earth-text">
+                {lang === 'es' ? '2. Vista hacia la Tierra' : '2. Line of sight to Earth'}
+              </strong>
+              <span className="md-caption">
+                {lang === 'es'
+                  ? 'Azul: hay línea de visión hacia la Tierra, necesaria para comunicarse.'
+                  : 'Blue: direct line of sight to Earth, required for communication.'}
+              </span>
+              <div className="md-outlook-track" style={{ marginTop: '6px' }}>
+                <div
+                  className="md-outlook-fill earth"
+                  style={{ left: '6%', width: `${Math.min(92, earthPct)}%` }}
+                />
+              </div>
+              <div className="md-time-slider-ticks" style={{ marginTop: '4px' }}>
+                <span>00:00</span>
+                <span>06:00</span>
+                <span>12:00</span>
+                <span>18:00</span>
+                <span>24:00</span>
+              </div>
+            </div>
+
+            <p className="md-caption">
+              {lang === 'es'
+                ? 'Tramos oscuros: no hay luz o no hay vista de la Tierra, según la fila.'
+                : 'Dark segments: no sunlight or no line of sight to Earth, depending on the row.'}
+            </p>
+          </div>
+        </div>
+      </div>
+    </section>
+  )
+}
+
 export interface ThreeMoonCompareProps {
   sites: Site[]
   siteA: SiteReport
@@ -551,6 +810,7 @@ export interface ThreeMoonCompareProps {
   onChangeSiteB: (id: string) => void
   onChangeSiteC: (id: string | null) => void
   delayDays: number
+  lang?: 'es' | 'en'
 }
 
 function formatDayHour(hours: number): string {
@@ -564,14 +824,14 @@ function shortSiteLabel(name: string): string {
   if (name.includes('IM-2')) return 'MONS MOUTON'
   if (name.includes('Reiner')) return 'REINER GAMMA'
   if (name.includes('Shackleton')) return 'SHACKLETON'
-  if (name.includes('Apollo')) return 'APOLLO 11'
+  if (name.includes('Apollo') || name.includes('Mare')) return 'APOLLO 11'
   return name.slice(0, 14).toUpperCase()
 }
 
 /**
- * Exact implementation of the 3 Moon Cards + "Comparación de métricas" table +
- * "Comparar fechas" horizontal bars from `Cambios a realizar.png`, dynamically
- * driven by the user's selected sites (Site A, Site B, and optional Site C / Luna 3).
+ * Exact implementation of the 3 Real Photographic Moon Cards +
+ * "Comparación de métricas" table + "Comparar fechas" horizontal bars
+ * from `Diseños completos.pdf` & `Cambios a realizar.png`.
  */
 export function ThreeMoonsComparisonSection({
   sites,
@@ -582,17 +842,21 @@ export function ThreeMoonsComparisonSection({
   onChangeSiteB,
   onChangeSiteC,
   delayDays,
+  lang = 'es',
 }: ThreeMoonCompareProps) {
-  // Adjust percentages slightly with delayDays so changing the proposed window updates the moons & bars dynamically
+  const moonUrl = `${import.meta.env.BASE_URL}moon-real.jpg`
+
   const shiftStats = (rep: SiteReport | null) => {
     if (!rep) return null
     const total = rep.series.length
     if (total === 0) {
       return {
         score: rep.viability?.scorePct ?? 0,
-        sunPct: rep.metrics.sun_visible_pct,
-        earthLinkPct: rep.viability?.subscores.communication ?? rep.metrics.earth_visible_pct,
-        earthVisPct: rep.metrics.earth_visible_pct,
+        sunPct: Math.round(rep.metrics.sun_visible_pct),
+        earthLinkPct: Math.round(
+          rep.viability?.subscores.communication ?? rep.metrics.earth_visible_pct,
+        ),
+        earthVisPct: Math.round(rep.metrics.earth_visible_pct),
         contLightHours: rep.metrics.longest_sun_window_hours,
       }
     }
@@ -606,7 +870,8 @@ export function ThreeMoonsComparisonSection({
       (windowSlice.filter((s) => s.earth_visible && s.earth_el >= minComm).length / len) * 100,
     )
     const baseScore = rep.viability?.scorePct ?? 80
-    const score = delayDays === 0 ? Math.round(baseScore) : Math.round((sunPct * 0.45 + earthLinkPct * 0.55))
+    const score =
+      delayDays === 0 ? Math.round(baseScore) : Math.round(sunPct * 0.45 + earthLinkPct * 0.55)
 
     return {
       score: Math.max(0, Math.min(100, score)),
@@ -621,76 +886,60 @@ export function ThreeMoonsComparisonSection({
   const statsB = shiftStats(siteB)!
   const statsC = shiftStats(siteC)
 
-  const renderMoonSphereSvg = (glowId: string, glowColor: string, sunPct: number | null) => {
-    const effectivePct = sunPct ?? 50
-    const glowScale = 84 + (effectivePct / 100) * 16
-    const shadowOffset = 60 - (effectivePct / 100) * 55
+  // Map the exact Moon disk (cx=626.5, cy=586, r=493 in 1200x1200 moon-real.jpg) to (cx=105, cy=105, r=60)
+  const rMoon = 60
+  const imgSize = 1200 * (rMoon / 493)
+  const imgX = 105 - 626.5 * (rMoon / 493)
+  const imgY = 105 - 586.0 * (rMoon / 493)
+
+  const renderRealMoonSphere = (glowId: string, glowColor: string, sunPct: number | null) => {
+    const effectivePct = sunPct ?? 55
+    const glowScale = 86 + (effectivePct / 100) * 14
+    const shadowOffset = 52 - (effectivePct / 100) * 48
 
     return (
       <svg viewBox="0 0 210 210" className="md-single-moon-svg" aria-hidden="true">
         <defs>
           <radialGradient id={glowId} cx="50%" cy="50%" r="50%">
-            <stop offset="0%" stopColor={glowColor} stopOpacity="0.72" />
-            <stop offset="50%" stopColor={glowColor} stopOpacity="0.34" />
-            <stop offset="78%" stopColor={glowColor} stopOpacity="0.09" />
+            <stop offset="0%" stopColor={glowColor} stopOpacity="0.78" />
+            <stop offset="48%" stopColor={glowColor} stopOpacity="0.38" />
+            <stop offset="76%" stopColor={glowColor} stopOpacity="0.1" />
             <stop offset="100%" stopColor={glowColor} stopOpacity="0" />
           </radialGradient>
-          <radialGradient id={`lunarSurf-${glowId}`} cx="36%" cy="34%" r="66%">
-            <stop offset="0%" stopColor="#F4F5F7" />
-            <stop offset="38%" stopColor="#D1D5DB" />
-            <stop offset="72%" stopColor="#6B7280" />
-            <stop offset="100%" stopColor="#1F2937" />
-          </radialGradient>
-          <clipPath id={`moonClip-${glowId}`}>
-            <circle cx="105" cy="105" r="60" />
+          <clipPath id={`realMoonClip-${glowId}`}>
+            <circle cx="105" cy="105" r={rMoon} />
           </clipPath>
         </defs>
 
-        {/* Atmospheric radial halo glow behind the Moon (scales with site illumination) */}
+        {/* Atmospheric radial halo glow behind the real Moon */}
         <circle cx="105" cy="105" r={glowScale} fill={`url(#${glowId})`} />
 
-        {/* Photorealistic stylized lunar sphere with mare regions */}
-        <g clipPath={`url(#moonClip-${glowId})`}>
-          <circle cx="105" cy="105" r="60" fill={`url(#lunarSurf-${glowId})`} />
-          {/* Mare Imbrium / Serenitatis / Tranquillitatis dark patches */}
-          <ellipse
-            cx="88"
-            cy="86"
-            rx="16"
-            ry="13"
-            fill="rgba(31, 41, 55, 0.42)"
-            transform="rotate(-18 88 86)"
+        {/* Real high-res photographic Moon extracted from Diseños completos.pdf */}
+        <g clipPath={`url(#realMoonClip-${glowId})`}>
+          <image
+            href={moonUrl}
+            x={imgX}
+            y={imgY}
+            width={imgSize}
+            height={imgSize}
+            preserveAspectRatio="none"
           />
-          <ellipse
-            cx="118"
-            cy="84"
-            rx="13"
-            ry="11"
-            fill="rgba(31, 41, 55, 0.38)"
-            transform="rotate(14 118 84)"
-          />
-          <circle cx="126" cy="104" r="10" fill="rgba(31, 41, 55, 0.35)" />
-          <ellipse cx="84" cy="112" rx="14" ry="10" fill="rgba(31, 41, 55, 0.34)" />
-          <circle cx="106" cy="126" r="7" fill="rgba(31, 41, 55, 0.28)" />
-          {/* Bright Tycho / Copernicus ray craters */}
-          <circle cx="96" cy="134" r="4.5" fill="rgba(255, 255, 255, 0.55)" />
-          <circle cx="78" cy="98" r="3.5" fill="rgba(255, 255, 255, 0.45)" />
-          {/* Dynamic terminator shading based on selected site's illumination data */}
+          {/* Subtle dynamic terminator shading driven by selected site's illumination */}
           <circle
             cx={105 + shadowOffset}
-            cy="112"
-            r="62"
-            fill="rgba(8, 12, 20, 0.28)"
+            cy="110"
+            r="64"
+            fill="rgba(6, 10, 18, 0.22)"
           />
         </g>
 
         <circle
           cx="105"
           cy="105"
-          r="60"
+          r={rMoon}
           fill="none"
-          stroke="rgba(255, 255, 255, 0.18)"
-          strokeWidth="1"
+          stroke="rgba(255, 255, 255, 0.22)"
+          strokeWidth="1.1"
         />
       </svg>
     )
@@ -710,13 +959,13 @@ export function ThreeMoonsComparisonSection({
   return (
     <div className="md-compare-stack">
       {/* ===================================================================
-          1. THREE SEPARATE ROUNDED MOON CARDS (Exact match to Cambios a realizar.png)
+          1. THREE SEPARATE ROUNDED CARDS WITH REAL PHOTOGRAPHIC MOONS
          =================================================================== */}
       <div className="md-three-moons-grid">
         {/* Moon Card 1 (Site A - Purple) */}
         <div className="md-single-moon-card">
           <select
-            aria-label="Seleccionar Sitio A"
+            aria-label={lang === 'es' ? 'Seleccionar Sitio A' : 'Select Site A'}
             value={siteA.site.id}
             onChange={(e) => onChangeSiteA(e.target.value)}
             className="md-moon-card-select"
@@ -729,7 +978,7 @@ export function ThreeMoonsComparisonSection({
           </select>
 
           <div className="md-single-moon-stage">
-            {renderMoonSphereSvg('moonGlowPurple', '#8B5CF6', statsA.sunPct)}
+            {renderRealMoonSphere('moonGlowPurple', '#8B5CF6', statsA.sunPct)}
             <span className="md-single-moon-badge purple">{statsA.sunPct}%</span>
           </div>
         </div>
@@ -737,7 +986,7 @@ export function ThreeMoonsComparisonSection({
         {/* Moon Card 2 (Site B - Amber) */}
         <div className="md-single-moon-card">
           <select
-            aria-label="Seleccionar Sitio B"
+            aria-label={lang === 'es' ? 'Seleccionar Sitio B' : 'Select Site B'}
             value={siteB.site.id}
             onChange={(e) => onChangeSiteB(e.target.value)}
             className="md-moon-card-select"
@@ -750,7 +999,7 @@ export function ThreeMoonsComparisonSection({
           </select>
 
           <div className="md-single-moon-stage">
-            {renderMoonSphereSvg('moonGlowAmber', '#F59E0B', statsB.sunPct)}
+            {renderRealMoonSphere('moonGlowAmber', '#F59E0B', statsB.sunPct)}
             <span className="md-single-moon-badge amber">{statsB.sunPct}%</span>
           </div>
         </div>
@@ -758,12 +1007,12 @@ export function ThreeMoonsComparisonSection({
         {/* Moon Card 3 (Site C / Luna 3 - Teal/Cyan) */}
         <div className="md-single-moon-card">
           <select
-            aria-label="Seleccionar Luna 3 (Sitio C)"
+            aria-label={lang === 'es' ? 'Seleccionar Luna 3 (Sitio C)' : 'Select Moon 3 (Site C)'}
             value={siteC?.site.id ?? ''}
             onChange={(e) => onChangeSiteC(e.target.value ? e.target.value : null)}
             className="md-moon-card-select"
           >
-            <option value="">Luna 3</option>
+            <option value="">{lang === 'es' ? 'Luna 3' : 'Moon 3'}</option>
             {sites.map((s) => (
               <option key={s.id} value={s.id}>
                 {s.name}
@@ -772,7 +1021,7 @@ export function ThreeMoonsComparisonSection({
           </select>
 
           <div className="md-single-moon-stage">
-            {renderMoonSphereSvg('moonGlowTeal', '#2DD4BF', statsC ? statsC.sunPct : null)}
+            {renderRealMoonSphere('moonGlowTeal', '#2DD4BF', statsC ? statsC.sunPct : null)}
             <span className="md-single-moon-badge teal">
               {statsC ? `${statsC.sunPct}%` : '—'}
             </span>
@@ -781,15 +1030,17 @@ export function ThreeMoonsComparisonSection({
       </div>
 
       {/* ===================================================================
-          2. "Comparación de métricas" TABLE CARD (Exact match to Cambios a realizar.png)
+          2. "Comparación de métricas" TABLE CARD
          =================================================================== */}
       <div className="md-metrics-compare-card">
-        <h3 className="md-metrics-compare-title">Comparación de métricas</h3>
+        <h3 className="md-metrics-compare-title">
+          {lang === 'es' ? 'Comparación de métricas' : 'Metrics comparison'}
+        </h3>
         <div className="md-metrics-table-wrap">
           <table className="md-metrics-compare-table">
             <thead>
               <tr>
-                <th>MÉTRICA</th>
+                <th>{lang === 'es' ? 'MÉTRICA' : 'METRIC'}</th>
                 <th>A · {shortSiteLabel(siteA.site.name)}</th>
                 <th>B · {shortSiteLabel(siteB.site.name)}</th>
                 <th>{siteC ? `C · ${shortSiteLabel(siteC.site.name)}` : 'C'}</th>
@@ -798,7 +1049,7 @@ export function ThreeMoonsComparisonSection({
             </thead>
             <tbody>
               <tr>
-                <td>Iluminación solar</td>
+                <td>{lang === 'es' ? 'Iluminación solar' : 'Solar illumination'}</td>
                 <td>
                   <span className={statsA.sunPct >= statsB.sunPct ? 'md-win-pill' : ''}>
                     {statsA.sunPct}%
@@ -816,7 +1067,7 @@ export function ThreeMoonsComparisonSection({
               </tr>
 
               <tr>
-                <td>Enlace con la Tierra</td>
+                <td>{lang === 'es' ? 'Enlace con la Tierra' : 'Earth communication link'}</td>
                 <td>
                   <span className={statsA.earthLinkPct >= statsB.earthLinkPct ? 'md-win-pill' : ''}>
                     {statsA.earthLinkPct}%
@@ -834,7 +1085,7 @@ export function ThreeMoonsComparisonSection({
               </tr>
 
               <tr>
-                <td>Tierra visible</td>
+                <td>{lang === 'es' ? 'Tierra visible' : 'Earth visible'}</td>
                 <td>
                   <span className={statsA.earthVisPct >= statsB.earthVisPct ? 'md-win-pill' : ''}>
                     {statsA.earthVisPct}%
@@ -852,7 +1103,7 @@ export function ThreeMoonsComparisonSection({
               </tr>
 
               <tr>
-                <td>Luz continua</td>
+                <td>{lang === 'es' ? 'Luz continua' : 'Continuous light'}</td>
                 <td>
                   <span
                     className={
@@ -882,19 +1133,23 @@ export function ThreeMoonsComparisonSection({
       </div>
 
       {/* ===================================================================
-          3. "Comparar fechas" HORIZONTAL BARS CARD (Exact match to Cambios a realizar.png)
+          3. "Comparar fechas" HORIZONTAL BARS CARD
          =================================================================== */}
       <div className="md-compare-dates-card">
         <div className="md-dual-moon-head">
           <div className="md-dual-moon-title">
-            <strong>Comparar fechas</strong>
+            <strong>{lang === 'es' ? 'Comparar fechas' : 'Compare dates'}</strong>
           </div>
-          <span className="md-meta-label">VENTANA BASE VS. PROPUESTA</span>
+          <span className="md-meta-label">
+            {lang === 'es' ? 'VENTANA BASE VS. PROPUESTA' : 'BASE VS. PROPOSED WINDOW'}
+          </span>
         </div>
 
         <div className="md-dual-bars">
           <div className="md-dual-bar-row">
-            <span className="md-dual-bar-label">Luz solar</span>
+            <span className="md-dual-bar-label">
+              {lang === 'es' ? 'Luz solar' : 'Sunlight'}
+            </span>
             <div className="md-dual-bar-track">
               <div
                 className="md-dual-bar-fill purple"
@@ -905,7 +1160,9 @@ export function ThreeMoonsComparisonSection({
           </div>
 
           <div className="md-dual-bar-row">
-            <span className="md-dual-bar-label">Enlace Tierra</span>
+            <span className="md-dual-bar-label">
+              {lang === 'es' ? 'Enlace Tierra' : 'Earth link'}
+            </span>
             <div className="md-dual-bar-track">
               <div
                 className="md-dual-bar-fill amber"
@@ -917,7 +1174,7 @@ export function ThreeMoonsComparisonSection({
 
           <div className="md-dual-bar-row">
             <span className="md-dual-bar-label teal-label">
-              {siteC ? shortSiteLabel(siteC.site.name) : 'Luna 3'}
+              {siteC ? shortSiteLabel(siteC.site.name) : lang === 'es' ? 'Luna 3' : 'Moon 3'}
             </span>
             <div className="md-dual-bar-track teal-track">
               {statsC && (
@@ -933,10 +1190,14 @@ export function ThreeMoonsComparisonSection({
           </div>
 
           <div className="md-dual-bar-row">
-            <span className="md-dual-bar-label">Retraso</span>
+            <span className="md-dual-bar-label">
+              {lang === 'es' ? 'Retraso' : 'Delay'}
+            </span>
             <div className="md-dual-bar-track subtle" />
             <span className="md-dual-bar-val">
-              {delayDays >= 0 ? `+${delayDays} días` : `${delayDays} días`}
+              {delayDays >= 0
+                ? `+${delayDays} ${lang === 'es' ? 'días' : 'days'}`
+                : `${delayDays} ${lang === 'es' ? 'días' : 'days'}`}
             </span>
           </div>
         </div>

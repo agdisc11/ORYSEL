@@ -8,6 +8,7 @@ export interface ElevationChartProps {
   report: SiteReport
   selectedIndex?: number
   onSelectIndex?: (index: number) => void
+  lang?: 'es' | 'en'
 }
 
 /**
@@ -15,7 +16,12 @@ export interface ElevationChartProps {
  * ORYSEL / MOON DIAL design system in Diseños.pdf (with area gradients,
  * link threshold line, horizon 0° line, and interactive epoch marker).
  */
-export function ElevationChart({ report, selectedIndex, onSelectIndex }: ElevationChartProps) {
+export function ElevationChart({
+  report,
+  selectedIndex,
+  onSelectIndex,
+  lang = 'es',
+}: ElevationChartProps) {
   const { series, windows, horizon, site } = report
   const t0 = Date.parse(report.start)
   const t1 = Date.parse(report.end)
@@ -90,7 +96,7 @@ export function ElevationChart({ report, selectedIndex, onSelectIndex }: Elevati
       </defs>
 
       <text className="chart-axis-title" x={PAD.l - 6} y={14} textAnchor="start">
-        Elevación (°)
+        {lang === 'es' ? 'Elevación (°)' : 'Elevation (°)'}
       </text>
 
       {/* Daylight windows subtle backdrop */}
@@ -147,20 +153,20 @@ export function ElevationChart({ report, selectedIndex, onSelectIndex }: Elevati
           y2={yMask}
         />
         <text className="mask-label" x={PAD.l + 8} y={Math.max(PAD.t + 12, yMask - 5)}>
-          Umbral de enlace · {commThresholdDeg.toFixed(0)}°
+          {lang === 'es' ? 'Umbral de enlace' : 'Link threshold'} · {commThresholdDeg.toFixed(0)}°
         </text>
       </g>
 
       {/* Horizon 0 deg label on right */}
       {lo <= 0 && hi >= 0 && (
         <text className="horizon-label" x={W - PAD.r - 6} y={yZero - 5} textAnchor="end">
-          Horizonte · 0°
+          {lang === 'es' ? 'Horizonte · 0°' : 'Horizon · 0°'}
         </text>
       )}
 
       {days.map((t) => (
         <text key={t} className="tick" x={x(t)} y={H - 10} textAnchor="middle">
-          {new Date(t).toLocaleDateString('es-MX', {
+          {new Date(t).toLocaleDateString(lang === 'es' ? 'es-MX' : 'en-US', {
             day: 'numeric',
             month: 'short',
             timeZone: 'UTC',
@@ -188,7 +194,7 @@ export function ElevationChart({ report, selectedIndex, onSelectIndex }: Elevati
             y={H - 22}
             textAnchor="middle"
           >
-            {new Date(activeSample.t).toLocaleDateString('es-MX', {
+            {new Date(activeSample.t).toLocaleDateString(lang === 'es' ? 'es-MX' : 'en-US', {
               day: 'numeric',
               month: 'short',
               timeZone: 'UTC',
@@ -201,10 +207,10 @@ export function ElevationChart({ report, selectedIndex, onSelectIndex }: Elevati
       {last && (
         <>
           <text className="label sun" x={W - PAD.r + 8} y={y(last.sun_el) + 4}>
-            Sol
+            {lang === 'es' ? 'Sol' : 'Sun'}
           </text>
           <text className="label earth" x={W - PAD.r + 8} y={y(last.earth_el) + 4}>
-            Tierra
+            {lang === 'es' ? 'Tierra' : 'Earth'}
           </text>
         </>
       )}
