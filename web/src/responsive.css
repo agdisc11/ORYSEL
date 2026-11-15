@@ -1,0 +1,604 @@
+/* ============================================================================
+   RESPONSIVE LAYER · móvil (360–480), tablet (768) y escritorio (1280+)
+   Se carga después de index.css: sólo adapta el diseño MOON DIAL a cada
+   pantalla. No cambia colores ni tipografías del sistema.
+   ============================================================================ */
+
+/* --- Base móvil ------------------------------------------------------------ */
+html,
+body {
+  max-width: 100%;
+  /* `clip` corta el desborde horizontal igual que `hidden`, pero sin crear un
+     contenedor de scroll, así la barra superior sigue siendo sticky. */
+  overflow-x: hidden;
+  overflow-x: clip;
+  -webkit-tap-highlight-color: transparent;
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
+.md-app {
+  min-height: 100vh;
+  min-height: 100dvh;
+  padding-bottom: calc(84px + env(safe-area-inset-bottom));
+}
+
+img,
+video,
+canvas {
+  max-width: 100%;
+}
+
+img {
+  height: auto;
+}
+
+button,
+select,
+input,
+label,
+[role="tab"] {
+  touch-action: manipulation;
+}
+
+/* Foco visible con teclado en todo lo que se puede accionar */
+:where(button, a, input, select, textarea, summary, [tabindex]):focus-visible {
+  outline: 2px solid var(--earth-soft);
+  outline-offset: 2px;
+}
+
+/* Tablas y bloques de código nunca empujan la página hacia los lados */
+.md-data-table {
+  display: block;
+  max-width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.code-snippet {
+  max-width: 100%;
+  white-space: pre-wrap;
+  word-break: break-word;
+  overflow-wrap: anywhere;
+}
+
+/* Ningún modal es más alto que la pantalla: si no cabe, se desplaza por dentro */
+.md-auth-split-card,
+.modal-card,
+.arch-modal-card {
+  max-height: calc(100vh - 40px);
+  max-height: calc(100dvh - 40px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+/* --- Tipografía fluida (360 px → 1920 px) --------------------------------- */
+.md-display-title {
+  font-size: clamp(24px, 1.6vw + 18px, 38px);
+  overflow-wrap: anywhere;
+}
+
+.md-h1 {
+  font-size: clamp(20px, 0.6vw + 18px, 24px);
+  line-height: 1.3;
+}
+
+.md-h2 {
+  font-size: clamp(17px, 0.3vw + 16px, 19px);
+}
+
+.md-exec-kpi-big {
+  font-size: clamp(36px, 2.4vw + 28px, 48px);
+}
+
+.md-kids-score-big {
+  font-size: clamp(34px, 2.4vw + 26px, 46px);
+}
+
+.md-team-score-inline strong {
+  font-size: clamp(28px, 1.8vw + 22px, 38px);
+}
+
+.md-watermark-num,
+.md-countdown-value,
+.md-score-big {
+  font-size: clamp(24px, 1.4vw + 19px, 32px);
+}
+
+/* --- Movimiento reducido --------------------------------------------------- */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* --- Tablet (≤ 1024 px): rejillas de tarjetas a 2 columnas ---------------- */
+@media (max-width: 1024px) {
+  .md-site-metrics-row,
+  .md-eight-metrics-grid,
+  .md-env-grid,
+  .md-scenario-strip,
+  .md-three-kpi-cards,
+  .md-three-moons-grid,
+  .md-four-bars-row,
+  .md-edu-three-cards,
+  .md-kids-three-checks,
+  .md-about-metrics-strip,
+  .arch-layers {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .md-six-metrics-row {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  /* Paneles de dos piezas: una columna, sin mínimos que desborden */
+  .md-mission-control-grid,
+  .md-navigator-middle-grid,
+  .md-horizon-sky-grid,
+  .md-exec-hero-grid,
+  .md-exec-checks-grid,
+  .md-kids-hero-grid,
+  .md-hve-row,
+  .rocket-body,
+  .md-auth-split-card {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .md-auth-moon-pane,
+  .md-auth-left {
+    border-right: none;
+    border-bottom: 1px solid var(--line);
+  }
+
+  .md-auth-moon-stage {
+    width: min(240px, 52vw);
+    height: min(240px, 52vw);
+  }
+}
+
+/* --- Menos de 768 px: barra superior en dos filas ------------------------- */
+@media (max-width: 767px) {
+  .md-topbar {
+    flex-wrap: wrap;
+    row-gap: 0;
+    column-gap: 10px;
+    padding: calc(8px + env(safe-area-inset-top)) max(12px, env(safe-area-inset-right)) 0
+      max(12px, env(safe-area-inset-left));
+  }
+
+  .md-topbar-left {
+    order: 1;
+    min-width: 0;
+  }
+
+  .md-topbar-right {
+    order: 2;
+    gap: 6px;
+    margin-left: auto;
+  }
+
+  /* Fila 2: pestañas con scroll horizontal, como una app nativa */
+  .md-topnav {
+    order: 3;
+    flex: 1 0 100%;
+    gap: 0;
+    margin: 6px -12px 0;
+    padding: 0 6px;
+    overflow-x: auto;
+    flex-wrap: nowrap;
+    scrollbar-width: none;
+    scroll-snap-type: x proximity;
+    -webkit-overflow-scrolling: touch;
+    border-top: 1px solid var(--line);
+  }
+
+  .md-topnav::-webkit-scrollbar,
+  .md-profile-pills::-webkit-scrollbar,
+  .md-sheet-mode-pills::-webkit-scrollbar,
+  .md-sheet-site-switcher::-webkit-scrollbar,
+  .md-spacecraft-mode-pills::-webkit-scrollbar {
+    display: none;
+  }
+
+  .md-nav-link {
+    flex: 0 0 auto;
+    min-height: 44px;
+    padding: 12px 14px;
+    white-space: nowrap;
+    scroll-snap-align: start;
+  }
+
+  .md-nav-link.active::after {
+    bottom: 0;
+  }
+
+  .md-brand-text {
+    font-size: 14px;
+    letter-spacing: 0.1em;
+  }
+
+  .md-lang-pill button,
+  .md-explain-btn,
+  .md-avatar-btn {
+    min-height: 36px;
+    min-width: 36px;
+  }
+
+  /* Selectores de sitio y de vista: una sola fila deslizable */
+  .md-profile-pills,
+  .md-sheet-mode-pills,
+  .md-sheet-site-switcher,
+  .md-spacecraft-mode-pills {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+    max-width: 100%;
+    padding-bottom: 2px;
+  }
+
+  .md-profile-pills > *,
+  .md-sheet-mode-pills > *,
+  .md-sheet-site-switcher > *,
+  .md-spacecraft-mode-pills > * {
+    flex: 0 0 auto;
+    white-space: nowrap;
+  }
+
+  .md-chip {
+    min-height: 40px;
+    padding: 8px 14px;
+  }
+
+  .md-sheet-header-controls,
+  .md-page-header-right {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .md-explain-banner {
+    width: calc(100% - 24px);
+    margin-top: 10px;
+    padding: 10px 12px;
+  }
+
+  .md-explain-banner > * {
+    min-width: 0;
+    max-width: 100%;
+  }
+}
+
+/* --- Teléfono (≤ 640 px) --------------------------------------------------- */
+@media (max-width: 640px) {
+  .md-main {
+    padding: 16px max(12px, env(safe-area-inset-right)) 32px max(12px, env(safe-area-inset-left));
+    gap: 16px;
+  }
+
+  .md-panel {
+    padding: 14px;
+  }
+
+  .md-page-header {
+    align-items: flex-start;
+    gap: 12px;
+  }
+
+  /* Tarjetas grandes: una por fila */
+  .md-catalog-grid,
+  .md-two-col-grid,
+  .md-scenario-strip,
+  .md-three-kpi-cards,
+  .md-three-moons-grid,
+  .md-edu-three-cards,
+  .md-kids-three-checks,
+  .md-sun-comm-grid,
+  .md-exec-subscores-2x2,
+  .md-auth-role-grid,
+  .arch-layers,
+  .arch-bottom-grid,
+  .defense-grid,
+  .profile-grid,
+  .role-grid,
+  .form-row-2,
+  .md-filter-bar-panel,
+  .md-custom-coords-panel {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  /* Cifras cortas: dos por fila se leen mejor que una columna larga */
+  .md-site-metrics-row,
+  .md-eight-metrics-grid,
+  .md-env-grid,
+  .md-four-bars-row,
+  .md-six-metrics-row,
+  .md-about-metrics-strip,
+  .vector-controls {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  /* Filas etiqueta + barra + valor: la etiqueta arriba, la barra a lo ancho */
+  .md-breakdown-row,
+  .md-dual-bar-row {
+    grid-template-columns: minmax(0, 1fr) auto;
+    row-gap: 6px;
+  }
+
+  .md-breakdown-row > :first-child,
+  .md-dual-bar-row > :first-child {
+    grid-column: 1 / -1;
+  }
+
+  .md-sens-bar-row,
+  .md-outlook-track-row {
+    grid-template-columns: minmax(0, 1fr);
+    row-gap: 6px;
+  }
+
+  /* Las pistas ocupan todo el ancho, así que el eje ya no lleva sangría */
+  .md-outlook-axis {
+    padding-left: 0;
+    font-size: 10px;
+  }
+
+  .md-col-bar-top {
+    flex-wrap: wrap;
+    column-gap: 6px;
+  }
+
+  .md-sky-radar-layout {
+    grid-template-columns: minmax(0, 1fr);
+    justify-items: center;
+  }
+
+  .md-sky-radar-layout > :not(svg) {
+    justify-self: stretch;
+  }
+
+  .md-custom-coords-inputs {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .md-custom-coords-inputs > :last-child {
+    grid-column: 1 / -1;
+  }
+
+  .md-custom-coords-inputs button {
+    width: 100%;
+    min-height: 44px;
+  }
+
+  .md-exec-subscore-head,
+  .md-about-source-row,
+  .md-panel-header-row {
+    flex-wrap: wrap;
+    min-width: 0;
+  }
+
+  .md-about-source-row > *,
+  .md-exec-subscore-head > * {
+    min-width: 0;
+  }
+
+  .md-pedagogical-slider-row {
+    min-width: 0;
+    flex-wrap: wrap;
+  }
+
+  .md-single-moon-stage {
+    width: min(210px, 62vw);
+    height: min(210px, 62vw);
+  }
+
+  .md-single-moon-card {
+    min-width: 0;
+  }
+
+  .md-btn {
+    min-height: 44px;
+  }
+
+  /* Panel de comparar: sube por encima del botón de ORY-Bot y se compacta */
+  .md-compare-dock {
+    bottom: calc(68px + env(safe-area-inset-bottom));
+    padding: 10px 12px;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+
+  .md-compare-dock-left {
+    min-width: 0;
+    flex: 1 1 100%;
+  }
+
+  .md-compare-dock-chips {
+    flex: 1 1 100%;
+    min-width: 0;
+    max-width: 100%;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+
+  .md-dock-chip {
+    flex: 0 0 auto;
+    white-space: nowrap;
+  }
+
+  .md-compare-dock > :last-child {
+    flex: 1 1 100%;
+  }
+
+  /* --- Modales en formato bottom sheet ----------------------------------- */
+  .modal-backdrop,
+  .md-auth-backdrop {
+    align-items: flex-end;
+    padding: 0;
+  }
+
+  .modal-card,
+  .arch-modal-card,
+  .md-auth-split-card {
+    width: 100%;
+    max-width: 100%;
+    max-height: 88vh;
+    max-height: 88dvh;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+    padding: 16px;
+    padding-bottom: calc(16px + env(safe-area-inset-bottom));
+    border-radius: 16px 16px 0 0;
+    border-bottom: none;
+  }
+
+  .md-auth-split-card {
+    padding: 0 0 env(safe-area-inset-bottom);
+  }
+
+  .md-auth-moon-pane,
+  .md-auth-left {
+    padding: 16px;
+    gap: 10px;
+  }
+
+  .md-auth-right {
+    padding: 16px;
+  }
+
+  .md-auth-moon-stage {
+    width: 120px;
+    height: 120px;
+  }
+
+  .md-close-icon-btn,
+  .modal-header button,
+  .arch-modal-header button {
+    min-width: 44px;
+    min-height: 44px;
+  }
+
+  /* --- ORY-Bot: botón compacto y chat casi a pantalla completa ----------- */
+  .orybot-floating-wrap {
+    right: 12px;
+    bottom: calc(12px + env(safe-area-inset-bottom));
+  }
+
+  .orybot-fab {
+    padding: 8px 12px;
+    min-height: 44px;
+  }
+
+  .orybot-fab-text span {
+    display: none;
+  }
+
+  .orybot-drawer {
+    width: calc(100vw - 24px);
+    max-height: 75vh;
+    max-height: 75dvh;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
+
+  .orybot-quick-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+
+  .orybot-quick-actions button {
+    min-height: 40px;
+  }
+
+  /* --- Simulador de la nave (vista infantil) ----------------------------- */
+  .md-spacecraft-sim-card {
+    padding: 14px 12px;
+    gap: 12px;
+  }
+
+  .md-spacecraft-waypoints-overlay {
+    position: static;
+    padding: 8px;
+    justify-content: center;
+    background: rgba(19, 21, 36, 0.9);
+  }
+
+  .md-wp-btn,
+  .md-spacecraft-footer button,
+  .md-spacecraft-mode-pills button {
+    min-width: 44px;
+    min-height: 44px;
+    padding: 8px 14px;
+    font-size: 13px;
+  }
+
+  .md-spacecraft-footer {
+    padding: 12px;
+    gap: 12px;
+  }
+
+  .md-fuel-indicator-block {
+    min-width: 0;
+    flex-basis: 100%;
+  }
+
+  .md-fuel-slider {
+    min-height: 44px;
+  }
+}
+
+/* --- Pantallas muy angostas (≤ 380 px) ------------------------------------ */
+@media (max-width: 359px) {
+  .md-brand-text {
+    display: none;
+  }
+
+  .md-four-bars-row {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* Hoja de cuenta en teléfono: la Luna se queda, el texto de apoyo se va */
+@media (max-width: 640px) {
+  .md-auth-left-Copy .md-caption {
+    display: none;
+  }
+}
+
+/* Tablet (768–1024 px): todo el topbar en una línea sin partir palabras */
+@media (min-width: 768px) and (max-width: 1024px) {
+  .md-topbar {
+    padding: 10px 16px;
+    gap: 10px;
+  }
+
+  .md-brand-text,
+  .md-nav-link {
+    white-space: nowrap;
+  }
+
+  .md-topnav {
+    gap: 0;
+    min-width: 0;
+  }
+
+  .md-nav-link {
+    padding: 8px 9px;
+  }
+
+  .md-nav-link.active::after {
+    left: 8px;
+    right: 8px;
+  }
+
+  .md-topbar-right {
+    gap: 6px;
+  }
+}

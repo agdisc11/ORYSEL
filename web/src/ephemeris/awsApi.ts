@@ -11,11 +11,24 @@ import type { Sample } from './types.ts'
 export const AWS_BASE_URL: string =
   (import.meta.env.VITE_AWS_API_URL as string | undefined) || 'http://184.194.47.119:8000'
 
-function getEffectiveAwsUrl(path: string): string {
+/** Public IP of the EC2 instance that runs FastAPI + PostgreSQL. */
+export const AWS_EC2_HOST = '184.194.47.119'
+
+/**
+ * Where to send an API call, for any device that opens the app:
+ *  1. `VITE_AWS_API_URL` at build time always wins.
+ *  2. Served by the EC2 instance itself (e.g. a judge's phone on
+ *     http://184.194.47.119:8000): same origin, relative path, no CORS.
+ *  3. Served over HTTPS (Vercel): the `/aws-api` rewrite in vercel.json, so the
+ *     browser never mixes HTTPS with plain HTTP.
+ *  4. Anything else (local dev on http): the EC2 API directly.
+ */
+export function getEffectiveAwsUrl(path: string): string {
   const customEnv = import.meta.env.VITE_AWS_API_URL as string | undefined
   if (customEnv) return `${customEnv}${path}`
-  if (typeof window !== 'undefined' && window.location.protocol === 'https:') {
-    return `/aws-api${path}`
+  if (typeof window !== 'undefined') {
+    if (window.location.hostname === AWS_EC2_HOST) return path
+    if (window.location.protocol === 'https:') return `/aws-api${path}`
   }
   return `${AWS_BASE_URL}${path}`
 }
