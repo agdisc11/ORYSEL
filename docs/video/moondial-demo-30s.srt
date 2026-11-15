@@ -1,0 +1,27 @@
+1
+00:00:00,300 --> 00:00:03,850
+Where on the Moon will a lander have sunlight — and a radio link to Earth?
+
+2
+00:00:04,100 --> 00:00:08,850
+MOON DIAL answers it for any landing site, using NASA's SPICE toolkit and DE440 ephemerides.
+
+3
+00:00:09,100 --> 00:00:14,850
+At IM-2, Mons Mouton, the Sun grazes the horizon and Earth is in view 73% of the month.
+
+4
+00:00:15,100 --> 00:00:19,850
+Enter any coordinates: the server computes a new site in about two seconds.
+
+5
+00:00:20,100 --> 00:00:24,850
+Compare sites and catch blind spots where the crew would lose contact.
+
+6
+00:00:25,100 --> 00:00:28,250
+Open NASA data, checked against JPL Horizons: largest difference 0.000027°.
+
+7
+00:00:28,500 --> 00:00:30,000
+MOON DIAL by ORYSEL · orysel.duckdns.org
