@@ -4,12 +4,6 @@ export type Body = 'sun' | 'earth'
 
 export type UserProfileMode = 'executive' | 'professional' | 'educational' | 'kids'
 
-export interface SpaceEnginePreset {
-  sceneName: string
-  utcInstant: string
-  cameraNote: string
-}
-
 /** A point on the Moon. `source` says where the coordinates come from. */
 export interface Site {
   id: string
@@ -25,8 +19,17 @@ export interface Site {
   region?: string
   /** Optional summary description for the catalog and assistant. */
   description?: string
-  /** Optional 360-sample terrain horizon profile (degrees, from N clockwise). */
+  /** Optional terrain horizon profile (degrees, evenly spaced from N clockwise). */
   horizonProfile?: number[] | null
+  /**
+   * Where `horizonProfile` comes from. Anything that is not a measurement must
+   * say so (e.g. "supuesto"), and the screens show it as an assumption.
+   */
+  horizonSource?: string
+  /*
+   * The fields below are ASSUMPTIONS of the team's viability model, not
+   * measurements. The screens label them "Supuesto del modelo".
+   */
   /** Minimum elevation angle (deg) required for unobstructed crew/ground comm link. */
   minCommElevationDeg?: number
   /** Elevation angle (deg) of the orbital reconnaissance pass for photographic confirmation. */
@@ -35,10 +38,8 @@ export interface Site {
   magneticAnomalynT?: number
   /** Electrostatic regolith levitation risk during terminator crossings / solar storms. */
   electrostaticDustRisk?: 'LOW' | 'MODERATE' | 'HIGH'
-  /** Lunar exosphere boundary-layer scale height (~2 km) interaction index (0..1). */
+  /** Relative exposure to the lunar exosphere / plasma environment (0..1, model scale). */
   exosphereInteractionIndex?: number
-  /** Optional SpaceEngine 3D visual validation preset. */
-  spaceEnginePreset?: SpaceEnginePreset
 }
 
 export interface SkyPosition {

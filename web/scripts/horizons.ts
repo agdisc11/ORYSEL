@@ -3,6 +3,8 @@
  * Horizons is only used to validate the engine; the app never depends on it.
  *   npx tsx scripts/horizons.ts         one month, hourly, for every site
  */
+import { writeFileSync } from 'node:fs'
+import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { SITES } from '../src/data/sites.ts'
 import { createEphemeris, type Ephemeris } from '../src/ephemeris/spice.ts'
@@ -68,7 +70,8 @@ export async function compareWithHorizons(
     let el = 0
     for (const row of rows) {
       const ours = eph.sky(site, body, eph.toEt(row.utc))
-      const dAz = Math.abs(((ours.az - row.az + 540) % 360) - 180) * Math.cos((ours.el * Math.PI) / 180)
+      const dAz =
+        Math.abs(((ours.az - row.az + 540) % 360) - 180) * Math.cos((ours.el * Math.PI) / 180)
       az = Math.max(az, dAz)
       el = Math.max(el, Math.abs(ours.el - row.el))
     }
@@ -79,8 +82,10 @@ export async function compareWithHorizons(
 
 if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
   const eph = await createEphemeris(await loadKernelFiles())
+  const sites: Record<string, Record<string, { az: number; el: number; samples: number }>> = {}
   for (const site of SITES) {
     const diff = await compareWithHorizons(eph, site, '2026-11-14', '2026-12-14', '1 h')
+    sites[site.id] = diff
     for (const [body, d] of Object.entries(diff)) {
       console.log(
         `${site.id} ${body.padEnd(5)} ${d.samples} samples  ` +
@@ -88,4 +93,18 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
       )
     }
   }
+  // Saved next to the site reports; the "About the data" screen shows these measured values.
+  const all = Object.values(sites).flatMap((b) => Object.values(b))
+  const summary = {
+    checked_at: new Date().toISOString(),
+    window: { start: '2026-11-14', end: '2026-12-14', step: '1 h' },
+    reference: 'NASA/JPL Horizons API (observer on the Moon, apparent az/el)',
+    comparisons: all.reduce((n, d) => n + d.samples, 0),
+    max_az_diff_deg: Math.max(...all.map((d) => d.az)),
+    max_el_diff_deg: Math.max(...all.map((d) => d.el)),
+    sites,
+  }
+  const out = join(dirname(fileURLToPath(import.meta.url)), '..', 'data', 'validation.json')
+  writeFileSync(out, JSON.stringify(summary, null, 1))
+  console.log(`wrote ${out}`)
 }

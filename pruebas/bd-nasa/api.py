@@ -2,7 +2,8 @@
 ORYSEL open API on AWS EC2 (Ubuntu 24.04 + PostgreSQL 16 + FastAPI).
 
 An account is required for everything except the health check and the
-sign-in routes: `/api/sites`, `/api/horizons/*` and `/api/reports/*` need a
+sign-in routes: `/api/sites`, `/api/horizons/*`, `/api/reports/*` and
+`/api/compute` need a
 Bearer token from `/api/auth/register` or `/api/auth/login`. Accounts live in
 the `app` schema; the NASA/JPL Horizons ephemerides in `prueba.horizons_im2`.
 
@@ -25,9 +26,11 @@ from __future__ import annotations
 import base64
 import hashlib
 import hmac
+import json
 import os
 import re
 import secrets
+import subprocess
 import threading
 import time
 from collections import defaultdict, deque
@@ -46,6 +49,10 @@ FRONTEND_DIST = "/home/ubuntu/ORYSEL/web/dist"
 # Precomputed site reports (web/data in the repo). Not part of the public bundle.
 REPORTS_DIR = "/home/ubuntu/ORYSEL/web/data"
 SITE_ID_RE = re.compile(r"^[a-z0-9-]{1,64}$")
+# Custom coordinates are computed with the same TypeScript SPICE engine as the catalog.
+WEB_DIR = "/home/ubuntu/ORYSEL/web"
+COMPUTE_CMD = [os.path.join(WEB_DIR, "node_modules", ".bin", "tsx"), "scripts/compute-site.ts"]
+COMPUTE_SLOTS = threading.BoundedSemaphore(2)
 SESSION_DAYS = 7
 APP_CSP = (
     "default-src 'self'; script-src 'self'; style-src 'self' https://fonts.googleapis.com; "
@@ -204,6 +211,35 @@ def get_site_report(
     return FileResponse(path, media_type="application/json", headers={"Cache-Control": "private, no-store"})
 
 
+class ComputeIn(BaseModel):
+    lat: float = Field(ge=-90, le=90, description="Planetocentric latitude, degrees")
+    lon: float = Field(ge=-180, le=180, description="East longitude, degrees")
+
+
+@app.post("/api/compute")
+def compute_custom_site(body: ComputeIn, session: dict = Depends(current_session)):
+    """SPICE DE440 report (one month, hourly) for any point on the Moon."""
+    key = [f"compute:{session['id']}"]
+    if _too_many(key):
+        raise HTTPException(status_code=429, detail="Too many calculations, try again in a few minutes")
+    if not COMPUTE_SLOTS.acquire(timeout=5):
+        raise HTTPException(status_code=503, detail="Server busy, try again in a moment")
+    try:
+        _record_failure(key)  # counts every calculation toward the per-user limit
+        # Arguments are validated floats, passed as a list (no shell).
+        result = subprocess.run(
+            [*COMPUTE_CMD, f"{body.lat:.6f}", f"{body.lon:.6f}"],
+            cwd=WEB_DIR, capture_output=True, text=True, timeout=60,
+        )
+    except subprocess.TimeoutExpired:
+        raise HTTPException(status_code=504, detail="The calculation took too long")
+    finally:
+        COMPUTE_SLOTS.release()
+    if result.returncode != 0:
+        raise HTTPException(status_code=500, detail="The calculation failed")
+    return json.loads(result.stdout)
+
+
 # ---------------------------------------------------------------------------
 # Accounts
 # ---------------------------------------------------------------------------
@@ -285,7 +321,7 @@ def public_user(row: dict) -> dict:
 _FAILS: dict[str, deque] = defaultdict(deque)
 _FAILS_LOCK = threading.Lock()
 FAIL_WINDOW_S = 600
-LIMITS = {"email": 8, "ip": 50, "reg-ip": 10}
+LIMITS = {"email": 8, "ip": 50, "reg-ip": 10, "compute": 20}
 
 
 def _client_ip(request: Request) -> str:

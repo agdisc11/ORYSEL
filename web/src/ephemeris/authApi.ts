@@ -56,9 +56,14 @@ function storeToken(token: string | null): void {
   }
 }
 
-async function request<T>(path: string, init: RequestInit = {}, token?: string | null): Promise<T> {
+async function request<T>(
+  path: string,
+  init: RequestInit = {},
+  token?: string | null,
+  timeoutMs = TIMEOUT_MS,
+): Promise<T> {
   const controller = new AbortController()
-  const timer = setTimeout(() => controller.abort(), TIMEOUT_MS)
+  const timer = setTimeout(() => controller.abort(), timeoutMs)
   const headers: Record<string, string> = { Accept: 'application/json' }
   if (init.body) headers['Content-Type'] = 'application/json'
   if (token) headers.Authorization = `Bearer ${token}`
@@ -156,6 +161,47 @@ export async function fetchReport(siteId: string): Promise<SiteReport> {
     if (error instanceof AuthError && error.code === 'expired') notifySessionExpired()
     throw error
   }
+}
+
+/** Run a session-protected request; a rejected session sends the person to sign in. */
+async function withSession<T>(run: (token: string) => Promise<T>): Promise<T> {
+  const token = getStoredToken()
+  if (!token) {
+    notifySessionExpired()
+    throw new AuthError('expired', 'Not signed in')
+  }
+  try {
+    return await run(token)
+  } catch (error) {
+    if (error instanceof AuthError && error.code === 'expired') notifySessionExpired()
+    throw error
+  }
+}
+
+/** SPICE DE440 report for any point on the Moon, computed on the server (~3–10 s). */
+export function computeCustomReport(lat: number, lon: number): Promise<SiteReport> {
+  return withSession((token) =>
+    request<SiteReport>(
+      '/api/compute',
+      { method: 'POST', body: JSON.stringify({ lat, lon }) },
+      token,
+      60_000,
+    ),
+  )
+}
+
+/** Measured agreement with NASA/JPL Horizons, written by scripts/horizons.ts. */
+export interface ValidationSummary {
+  checked_at: string
+  window: { start: string; end: string; step: string }
+  reference: string
+  comparisons: number
+  max_az_diff_deg: number
+  max_el_diff_deg: number
+}
+
+export function fetchValidation(): Promise<ValidationSummary> {
+  return withSession((token) => request<ValidationSummary>('/api/reports/validation', {}, token))
 }
 
 export function isValidEmail(email: string): boolean {

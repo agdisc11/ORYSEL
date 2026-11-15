@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useState } from 'react'
-import { SITES } from './data/sites.ts'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { SITES, localizeSite } from './data/sites.ts'
 import type { Site, SiteReport, UserProfileMode } from './ephemeris/types.ts'
 import { computeViabilityKPI } from './ephemeris/report.ts'
 import {
@@ -19,7 +19,14 @@ import {
   ThreeMoonsComparisonSection,
   TwentyFourHourOutlook,
 } from './components/LunarVisualWidgets.tsx'
-import { fetchReport, type AuthUser } from './ephemeris/authApi.ts'
+import {
+  AuthError,
+  computeCustomReport,
+  fetchReport,
+  fetchValidation,
+  type AuthUser,
+  type ValidationSummary,
+} from './ephemeris/authApi.ts'
 import { OryBotAssistant } from './components/OryBotAssistant.tsx'
 import { RocketVectorPlayground } from './components/RocketVectorPlayground.tsx'
 import { ArchitectureDefensePanel } from './components/ArchitectureDefensePanel.tsx'
@@ -35,10 +42,15 @@ interface LoadedSiteData {
   report: SiteReport
 }
 
+/** Id of the point computed from "Coordenadas personalizadas". */
+const CUSTOM_SITE_ID = 'custom'
+
 function formatDurationHours(hours: number): string {
   if (hours <= 0) return '0 h'
-  const days = Math.floor(hours / 24)
-  const remH = Math.round(hours % 24)
+  // Round the total first so 47.99 h reads "2d 00h", not "1d 24h"
+  const total = Math.round(hours)
+  const days = Math.floor(total / 24)
+  const remH = total % 24
   if (days === 0) return `${remH} h`
   return `${days}d ${String(remH).padStart(2, '0')}h`
 }
@@ -51,33 +63,25 @@ function getVerdictCategory(
   return 'not-viable'
 }
 
+function dustRiskLabel(risk: Site['electrostaticDustRisk'], lang: Lang): string {
+  if (!risk) return '—'
+  const es = { LOW: 'Bajo', MODERATE: 'Moderado', HIGH: 'Alto' } as const
+  const en = { LOW: 'Low', MODERATE: 'Moderate', HIGH: 'High' } as const
+  return (lang === 'es' ? es : en)[risk]
+}
+
 function translateRegion(region: string | undefined, lang: Lang): string {
-  if (!region) return lang === 'es' ? 'Superficie Lunar' : 'Lunar Surface'
-  if (lang === 'es') return region
-  return region
-    .replace('Polo Sur Lunar (Meseta de Leibnitz)', 'Lunar South Pole (Leibnitz Plateau)')
-    .replace('Oceanus Procellarum (Anomalía Magnética)', 'Oceanus Procellarum (Magnetic Swirl)')
-    .replace('Mare Tranquillitatis (Ecuatorial)', 'Mare Tranquillitatis (Equatorial)')
-    .replace('Polo Sur Lunar (Interior de Cráter)', 'Lunar South Pole (Crater Interior)')
+  if (!region) return lang === 'es' ? 'Superficie lunar' : 'Lunar surface'
+  return region // already in the chosen language (localizeSite)
 }
 
 function translateSiteDescription(site: Site, lang: Lang): string {
-  if (lang === 'es') {
-    return (
-      site.description ??
-      'Sitio lunar evaluado mediante kernels oficiales SPICE DE440 y NASA JPL Horizons.'
-    )
-  }
-  if (site.id === 'im2') {
-    return 'High-elevation south polar plateau (~5.1 km). Receives low-angle grazing sunlight and direct Earth communication for Artemis and CLPS missions.'
-  }
-  if (site.id === 'reiner-gamma') {
-    return 'Equatorial lunar swirl with a 28 nT crustal magnetic anomaly that partially deflects solar wind and reduces electrostatic dust levitation.'
-  }
-  if (site.id === 'apollo11') {
-    return 'Historic equatorial reference baseline with 100% direct Earth visibility (58.8°–73.2° elevation) and classic 14.7-day lunar day/night cycles.'
-  }
-  return 'Deep south polar crater floor where an ~11° topographic rim blocks direct line-of-sight with Earth and creates orbital imaging blind spots.'
+  return (
+    site.description ??
+    (lang === 'es'
+      ? 'Sitio lunar calculado con SPICE DE440 (NASA/NAIF).'
+      : 'Lunar site computed with SPICE DE440 (NASA/NAIF).')
+  )
 }
 
 interface AppProps {
@@ -92,6 +96,9 @@ export function App({ user, onSignOut }: AppProps) {
   const [compareSlot, setCompareSlot] = useState<CompareSlot>('A')
   const [activeTab, setActiveTab] = useState<MainTab>('catalog')
   const [lang, setLang] = useState<Lang>('es')
+  const langRef = useRef<Lang>(lang)
+  langRef.current = lang
+  const sites = useMemo(() => SITES.map((s) => localizeSite(s, lang)), [lang])
   const [explainOpen, setExplainOpen] = useState<boolean>(false)
   const [profileMode, setProfileMode] = useState<UserProfileMode>('executive')
 
@@ -102,6 +109,9 @@ export function App({ user, onSignOut }: AppProps) {
   const [customLat, setCustomLat] = useState<string>('-84.79')
   const [customLon, setCustomLon] = useState<string>('29.20')
   const [customStatusMsg, setCustomStatusMsg] = useState<string | null>(null)
+  const [customReport, setCustomReport] = useState<SiteReport | null>(null)
+  const [computingCustom, setComputingCustom] = useState<boolean>(false)
+  const [validation, setValidation] = useState<ValidationSummary | null>(null)
 
   // All 4 sites preloaded so Catalog & Compare show live SPICE DE440 + AWS metrics
   const [allSitesData, setAllSitesData] = useState<Record<string, LoadedSiteData>>({})
@@ -116,7 +126,7 @@ export function App({ user, onSignOut }: AppProps) {
   // Modals & sub-tabs
   const [accountMenuOpen, setAccountMenuOpen] = useState<boolean>(false)
   const [showArchModal, setShowArchModal] = useState<boolean>(false)
-  const [sheetBottomTab, setSheetBottomTab] = useState<'aws' | 'events' | 'spaceengine'>('aws')
+  const [sheetBottomTab, setSheetBottomTab] = useState<'aws' | 'events'>('aws')
 
   // Close the account menu on Escape or a click outside it
   useEffect(() => {
@@ -159,7 +169,7 @@ export function App({ user, onSignOut }: AppProps) {
     Promise.all(
       SITES.map(async (meta) => {
         const data = await fetchReport(meta.id)
-        const mergedSite = { ...meta, ...data.site }
+        const mergedSite = localizeSite({ ...meta, ...data.site }, langRef.current)
         const enriched: SiteReport = {
           ...data,
           site: mergedSite,
@@ -210,12 +220,19 @@ export function App({ user, onSignOut }: AppProps) {
   // Load selected site report & AWS Horizons time-series (/api/horizons/{sitio_id})
   useEffect(() => {
     let cancelled = false
-    const meta = SITES.find((s) => s.id === siteId) ?? SITES[0]
+    const meta = SITES.find((s) => s.id === siteId)
+    const load =
+      siteId === CUSTOM_SITE_ID && customReport
+        ? Promise.resolve(customReport)
+        : fetchReport(siteId)
 
-    fetchReport(siteId)
+    load
       .then((data) => {
         if (cancelled) return
-        const mergedSite = { ...meta, ...data.site }
+        const mergedSite = localizeSite(
+          meta ? { ...meta, ...data.site } : data.site,
+          langRef.current,
+        )
         const enriched: SiteReport = {
           ...data,
           site: mergedSite,
@@ -245,7 +262,32 @@ export function App({ user, onSignOut }: AppProps) {
     return () => {
       cancelled = true
     }
-  }, [siteId])
+  }, [siteId, customReport])
+
+  // Switch the site text (names, regions, descriptions) when the language changes
+  useEffect(() => {
+    setReport((r) => (r ? { ...r, site: localizeSite(r.site, lang) } : r))
+    setCustomReport((r) => (r ? { ...r, site: localizeSite(r.site, lang) } : r))
+    setAllSitesData((prev) =>
+      Object.fromEntries(
+        Object.entries(prev).map(([k, v]) => [
+          k,
+          {
+            ...v,
+            meta: localizeSite(v.meta, lang),
+            report: { ...v.report, site: localizeSite(v.report.site, lang) },
+          },
+        ]),
+      ),
+    )
+  }, [lang])
+
+  // Measured agreement with NASA/JPL Horizons (scripts/horizons.ts), for "About the data"
+  useEffect(() => {
+    fetchValidation()
+      .then(setValidation)
+      .catch(() => setValidation(null))
+  }, [])
 
   // Scenario time playback timer ("09 / TIME SLIDER · PAUSED / PLAYING")
   useEffect(() => {
@@ -276,7 +318,7 @@ export function App({ user, onSignOut }: AppProps) {
 
   // Filtered sites for Catalog
   const filteredCatalogSites = useMemo(() => {
-    return SITES.filter((s) => {
+    return sites.filter((s) => {
       const q = searchQuery.trim().toLowerCase()
       const regText = (s.region ?? '').toLowerCase()
       if (
@@ -299,7 +341,7 @@ export function App({ user, onSignOut }: AppProps) {
       if (verdictFilter !== 'all' && cat !== verdictFilter) return false
       return true
     })
-  }, [searchQuery, regionFilter, verdictFilter, allSitesData])
+  }, [sites, searchQuery, regionFilter, verdictFilter, allSitesData])
 
   // Custom coordinates validation
   const parsedLat = Number.parseFloat(customLat)
@@ -324,7 +366,7 @@ export function App({ user, onSignOut }: AppProps) {
     setActiveTab(targetTab)
   }
 
-  // Compare view Site A, Site B, and optional Site C (Luna 3)
+  // Compare view Site A, Site B, and optional Site C
   const compareLeftId = compareIds[0] ?? 'im2'
   const compareRightId = compareIds[1] ?? 'reiner-gamma'
   const compareThirdId = compareIds[2] ?? null
@@ -346,93 +388,120 @@ export function App({ user, onSignOut }: AppProps) {
     )
   }
 
-  const handleComputeCustomSite = () => {
-    if (latInvalid || lonInvalid) return
-    let closest = SITES[0]
-    let minDist = Infinity
-    for (const s of SITES) {
-      const d = Math.hypot(s.lat - parsedLat, s.lon - parsedLon)
-      if (d < minDist) {
-        minDist = d
-        closest = s
-      }
-    }
-    setSiteId(closest.id)
-    updateCompareSiteA(closest.id)
+  const handleComputeCustomSite = async () => {
+    if (latInvalid || lonInvalid || computingCustom) return
+    const es = lang === 'es'
+    setComputingCustom(true)
     setCustomStatusMsg(
-      lang === 'es'
-        ? `Efemérides SPICE DE440 calculadas para (${parsedLat.toFixed(2)}°, ${parsedLon.toFixed(2)}°) · Referencia más cercana: ${closest.name}`
-        : `SPICE DE440 ephemerides computed for (${parsedLat.toFixed(2)}°, ${parsedLon.toFixed(2)}°) · Nearest reference: ${closest.name}`,
+      es
+        ? 'Calculando con SPICE DE440 en el servidor…'
+        : 'Computing with SPICE DE440 on the server…',
     )
-    setActiveTab('compare')
+    const t0 = performance.now()
+    try {
+      const rep = await computeCustomReport(parsedLat, parsedLon)
+      const secs = ((performance.now() - t0) / 1000).toFixed(1)
+      setCustomReport(rep)
+      setAllSitesData((prev) => ({ ...prev, [CUSTOM_SITE_ID]: { meta: rep.site, report: rep } }))
+      setSiteId(CUSTOM_SITE_ID)
+      setActiveTab('sheet')
+      setCustomStatusMsg(
+        es
+          ? `Calculado con SPICE DE440 para (${parsedLat.toFixed(2)}°, ${parsedLon.toFixed(2)}°) en ${secs} s. Horizonte liso: todavía sin relieve.`
+          : `Computed with SPICE DE440 for (${parsedLat.toFixed(2)}°, ${parsedLon.toFixed(2)}°) in ${secs} s. Smooth horizon: no terrain yet.`,
+      )
+    } catch (error) {
+      const code = error instanceof AuthError ? error.code : 'server'
+      setCustomStatusMsg(
+        code === 'throttled'
+          ? es
+            ? 'Hiciste muchos cálculos seguidos. Espera unos minutos.'
+            : 'Too many calculations in a row. Wait a few minutes.'
+          : code === 'network'
+            ? es
+              ? 'No hay conexión con el servidor. Inténtalo de nuevo.'
+              : 'No connection to the server. Try again.'
+            : es
+              ? 'El cálculo no se pudo completar. Inténtalo de nuevo en un momento.'
+              : 'The calculation could not finish. Try again in a moment.',
+      )
+    } finally {
+      setComputingCustom(false)
+    }
   }
 
-  // Next Sun and Earth horizon crossing events for "Sunset in" / "Earthrise in" cards
+  // Next Sun and Earth horizon crossings after the selected instant (from the SPICE events)
   const nextCrossings = useMemo(() => {
+    const es = lang === 'es'
     if (!report || !activeSample) {
       return {
-        sunLabel: lang === 'es' ? 'Atardecer en' : 'Sunset in',
-        sunDelta: '16 d 18 h',
-        sunIso: '2026-11-30 18:32 UTC',
-        sunState: lang === 'es' ? 'Normal' : 'Normal',
-        earthLabel: lang === 'es' ? 'Salida de Tierra en' : 'Earthrise in',
-        earthDelta: '3 h',
-        earthIso: '2026-11-14 03:51 UTC',
-        earthState: lang === 'es' ? 'Crítico' : 'Critical',
+        sunLabel: '',
+        sunDelta: '—',
+        sunIso: '—',
+        sunState: '',
+        sunNext: null,
+        earthLabel: '',
+        earthDelta: '—',
+        earthIso: '—',
+        earthState: '',
+        earthNext: null,
       }
     }
     const nowMs = Date.parse(activeSample.t)
-    const futureSun = report.events.find((ev) => ev.body === 'sun' && Date.parse(ev.t) > nowMs)
-    const futureEarth = report.events.find((ev) => ev.body === 'earth' && Date.parse(ev.t) > nowMs)
-
-    const sunHours = futureSun
-      ? Math.max(1, (Date.parse(futureSun.t) - nowMs) / 3_600_000)
-      : report.metrics.longest_sun_window_hours || 396
-    const earthHours = futureEarth
-      ? Math.max(1, (Date.parse(futureEarth.t) - nowMs) / 3_600_000)
-      : report.metrics.longest_comm_gap_hours || 3
-
-    return {
-      sunLabel:
-        futureSun?.type === 'rise'
-          ? lang === 'es'
+    const next = (body: 'sun' | 'earth') =>
+      report.events.find((ev) => ev.body === body && Date.parse(ev.t) > nowMs) ?? null
+    const sunNext = next('sun')
+    const earthNext = next('earth')
+    const label = (ev: typeof sunNext, body: 'sun' | 'earth') => {
+      if (!ev) return es ? (body === 'sun' ? 'Sol' : 'Tierra') : body === 'sun' ? 'Sun' : 'Earth'
+      if (ev.type === 'rise') {
+        return es
+          ? body === 'sun'
             ? 'Amanecer en'
-            : 'Sunrise in'
-          : lang === 'es'
-            ? 'Atardecer en'
-            : 'Sunset in',
-      sunDelta: formatDurationHours(sunHours),
-      sunIso: futureSun
-        ? `${futureSun.t.slice(0, 16).replace('T', ' ')} UTC`
-        : '2026-11-30 18:32 UTC',
-      sunState:
-        activeSample.sun_el > 0
-          ? lang === 'es'
-            ? 'Normal'
-            : 'Normal'
-          : lang === 'es'
-            ? 'Crítico'
-            : 'Critical',
-      earthLabel:
-        futureEarth?.type === 'rise'
-          ? lang === 'es'
-            ? 'Salida de Tierra en'
+            : 'Salida de la Tierra en'
+          : body === 'sun'
+            ? 'Sunrise in'
             : 'Earthrise in'
-          : lang === 'es'
-            ? 'Ocultación Tierra en'
-            : 'Earthset in',
-      earthDelta: formatDurationHours(earthHours),
-      earthIso: futureEarth
-        ? `${futureEarth.t.slice(0, 16).replace('T', ' ')} UTC`
-        : '2026-11-14 03:51 UTC',
-      earthState:
-        activeSample.earth_el > (report.site.minCommElevationDeg ?? 2)
-          ? lang === 'es'
-            ? 'Normal'
-            : 'Normal'
-          : lang === 'es'
-            ? 'Crítico'
-            : 'Critical',
+      }
+      return es
+        ? body === 'sun'
+          ? 'Atardecer en'
+          : 'La Tierra se oculta en'
+        : body === 'sun'
+          ? 'Sunset in'
+          : 'Earthset in'
+    }
+    const delta = (ev: typeof sunNext) =>
+      ev
+        ? formatDurationHours(Math.max(1, (Date.parse(ev.t) - nowMs) / 3_600_000))
+        : es
+          ? 'Sin cambios'
+          : 'No change'
+    const iso = (ev: typeof sunNext) =>
+      ev
+        ? `${ev.t.slice(0, 16).replace('T', ' ')} UTC`
+        : es
+          ? 'No sale ni se pone antes del fin de la ventana'
+          : 'No rise or set before the window ends'
+    const state = (visible: boolean) =>
+      visible
+        ? es
+          ? 'Sobre el horizonte'
+          : 'Above the horizon'
+        : es
+          ? 'Bajo el horizonte'
+          : 'Below the horizon'
+    return {
+      sunLabel: label(sunNext, 'sun'),
+      sunDelta: delta(sunNext),
+      sunIso: iso(sunNext),
+      sunState: state(activeSample.sun_visible),
+      sunNext,
+      earthLabel: label(earthNext, 'earth'),
+      earthDelta: delta(earthNext),
+      earthIso: iso(earthNext),
+      earthState: state(activeSample.earth_visible),
+      earthNext,
     }
   }, [report, activeSample, lang])
 
@@ -544,8 +613,8 @@ export function App({ user, onSignOut }: AppProps) {
             <span className="md-hve-topic">{lang === 'es' ? 'Atmósfera' : 'Atmosphere'}</span>
             <strong>
               {lang === 'es'
-                ? 'Exosfera tenue (~2 km) · Sin aire para respirar ni viento'
-                : 'Surface-bounded exosphere (~2 km) · Vacuum'}
+                ? 'Exosfera extremadamente tenue, casi vacío · Sin aire para respirar ni viento'
+                : 'Extremely thin exosphere, almost a vacuum · No air to breathe, no wind'}
             </strong>
             <span className="md-caption">
               {lang === 'es'
@@ -592,8 +661,6 @@ export function App({ user, onSignOut }: AppProps) {
 
   return (
     <div className="md-app">
-
-
       {showArchModal && report && kpi && activeSample && (
         <ArchitectureDefensePanel
           site={report.site}
@@ -911,9 +978,7 @@ export function App({ user, onSignOut }: AppProps) {
 
           <div className="md-section-bar">
             <div className="md-section-bar-left">
-              <h2 className="md-h2">
-                {lang === 'es' ? 'Sitios disponibles' : 'Available sites'}
-              </h2>
+              <h2 className="md-h2">{lang === 'es' ? 'Sitios disponibles' : 'Available sites'}</h2>
               <span className="md-caption">
                 {filteredCatalogSites.length}{' '}
                 {lang === 'es' ? 'ubicaciones calculadas' : 'computed locations'}
@@ -926,20 +991,15 @@ export function App({ user, onSignOut }: AppProps) {
             {filteredCatalogSites.map((s) => {
               const siteRep = allSitesData[s.id]?.report
               const siteKpi = siteRep?.viability
-              const score =
-                siteKpi?.scorePct ?? (s.id === 'shackleton-blindspot' ? 18 : 86)
+              const score = siteKpi?.scorePct ?? (s.id === 'shackleton-blindspot' ? 18 : 86)
               const sunPct =
-                siteRep?.metrics.sun_visible_pct ??
-                (s.id === 'shackleton-blindspot' ? 0 : 59.48)
+                siteRep?.metrics.sun_visible_pct ?? (s.id === 'shackleton-blindspot' ? 0 : 59.48)
               const earthPct =
-                siteRep?.metrics.earth_visible_pct ??
-                (s.id === 'shackleton-blindspot' ? 0 : 73.47)
+                siteRep?.metrics.earth_visible_pct ?? (s.id === 'shackleton-blindspot' ? 0 : 73.47)
               const commGap =
                 siteRep?.metrics.longest_comm_gap_hours ??
                 (s.id === 'shackleton-blindspot' ? 720 : 0)
-              const isBlind = siteKpi
-                ? siteKpi.blindSpotDetected
-                : s.id === 'shackleton-blindspot'
+              const isBlind = siteKpi ? siteKpi.blindSpotDetected : s.id === 'shackleton-blindspot'
               const isCompareAdded = compareIds.includes(s.id)
 
               const latFormatted = `${Math.abs(s.lat).toFixed(4)}° ${s.lat >= 0 ? 'N' : 'S'}`
@@ -956,14 +1016,8 @@ export function App({ user, onSignOut }: AppProps) {
                       <p className="md-caption">{translateRegion(s.region, lang)}</p>
                     </div>
                     <div className="md-site-card-watermark">
-                      <span
-                        className={`md-verdict-inline ${isBlind ? 'not-viable' : 'viable'}`}
-                      >
-                        {isBlind
-                          ? lang === 'es'
-                            ? '× No viable'
-                            : '× Not viable'
-                          : '✓ Viable'}
+                      <span className={`md-verdict-inline ${isBlind ? 'not-viable' : 'viable'}`}>
+                        {isBlind ? (lang === 'es' ? '× No viable' : '× Not viable') : '✓ Viable'}
                       </span>
                     </div>
                   </div>
@@ -1117,10 +1171,15 @@ export function App({ user, onSignOut }: AppProps) {
                 <button
                   type="button"
                   className="md-btn primary"
-                  disabled={latInvalid || lonInvalid}
+                  disabled={latInvalid || lonInvalid || computingCustom}
+                  aria-busy={computingCustom}
                   onClick={handleComputeCustomSite}
                 >
-                  + {lang === 'es' ? 'Calcular sitio' : 'Compute site'}
+                  {computingCustom
+                    ? lang === 'es'
+                      ? 'Calculando…'
+                      : 'Computing…'
+                    : `+ ${lang === 'es' ? 'Calcular sitio' : 'Compute site'}`}
                 </button>
               </div>
             </div>
@@ -1138,7 +1197,7 @@ export function App({ user, onSignOut }: AppProps) {
                 </strong>
                 <div className="md-compare-dock-chips">
                   {compareIds.map((cid) => {
-                    const sMeta = SITES.find((s) => s.id === cid)
+                    const sMeta = sites.find((s) => s.id === cid)
                     if (!sMeta) return null
                     return (
                       <span key={cid} className="md-dock-chip">
@@ -1177,7 +1236,7 @@ export function App({ user, onSignOut }: AppProps) {
         <main className="md-main">
           {/* Site switcher pills at top of sheet */}
           <div className="md-sheet-site-switcher">
-            {SITES.map((s) => (
+            {sites.map((s) => (
               <button
                 key={s.id}
                 type="button"
@@ -1187,6 +1246,15 @@ export function App({ user, onSignOut }: AppProps) {
                 {s.name}
               </button>
             ))}
+            {customReport && (
+              <button
+                type="button"
+                className={siteId === CUSTOM_SITE_ID ? 'md-chip selected' : 'md-chip'}
+                onClick={() => setSiteId(CUSTOM_SITE_ID)}
+              >
+                {customReport.site.name}
+              </button>
+            )}
           </div>
 
           <header className="md-page-header">
@@ -1331,9 +1399,7 @@ export function App({ user, onSignOut }: AppProps) {
                     </div>
                     <div className="md-breakdown-row">
                       <span>
-                        {lang === 'es'
-                          ? 'Despeje Acimutal Terreno'
-                          : 'Azimuthal Terrain Clearance'}
+                        {lang === 'es' ? 'Despeje Acimutal Terreno' : 'Azimuthal Terrain Clearance'}
                       </span>
                       <div className="md-mini-track">
                         <div
@@ -1388,7 +1454,9 @@ export function App({ user, onSignOut }: AppProps) {
                     <div className="md-mc-readout-strip">
                       <div className="md-mc-epoch-box">
                         <strong>{activeSample.t.slice(0, 16).replace('T', ' ')} UTC</strong>
-                        <span>{lang === 'es' ? 'Época de referencia UTC' : 'Reference epoch UTC'}</span>
+                        <span>
+                          {lang === 'es' ? 'Época de referencia UTC' : 'Reference epoch UTC'}
+                        </span>
                       </div>
                       <div className="md-mc-body-readout">
                         <span className="md-sun-text">
@@ -1492,9 +1560,7 @@ export function App({ user, onSignOut }: AppProps) {
               {/* Row 4: 8 Metric Tiles in 4x2 Grid */}
               <section className="md-eight-metrics-grid">
                 <div className="md-metric-tile">
-                  <span className="md-label">
-                    {lang === 'es' ? 'SOL VISIBLE' : 'SUN VISIBLE'}
-                  </span>
+                  <span className="md-label">{lang === 'es' ? 'SOL VISIBLE' : 'SUN VISIBLE'}</span>
                   <strong className="md-tile-number sun">{report.metrics.sun_visible_pct}%</strong>
                   <span className="md-caption">
                     {lang === 'es' ? 'Valor calculado' : 'Computed value'}
@@ -1548,9 +1614,7 @@ export function App({ user, onSignOut }: AppProps) {
                   <span className="md-label">
                     {lang === 'es' ? 'NOCHE MÁS LARGA' : 'LONGEST NIGHT'}
                   </span>
-                  <strong className="md-tile-number">
-                    {report.metrics.longest_night_hours} h
-                  </strong>
+                  <strong className="md-tile-number">{report.metrics.longest_night_hours} h</strong>
                   <span className="md-caption">
                     {lang === 'es' ? 'Valor calculado' : 'Computed value'}
                   </span>
@@ -1606,11 +1670,16 @@ export function App({ user, onSignOut }: AppProps) {
                       {lang === 'es' ? 'PARÁMETROS DEL MODELO' : 'MODEL INPUTS'}
                     </span>
                     <h3 className="md-h2">
-                      {lang === 'es' ? 'Ambiente y aproximación' : 'Environment & approach'}
+                      {lang === 'es' ? 'Ambiente y velocidades' : 'Environment and velocities'}
                     </h3>
+                    <p className="md-caption">
+                      {lang === 'es'
+                        ? 'Polvo, campo magnético y exosfera son supuestos del equipo para el modelo, no mediciones. Las velocidades sí se calculan con la gravedad lunar (√(GM/r)).'
+                        : 'Dust, magnetic field and exosphere are team assumptions for the model, not measurements. The velocities are computed from lunar gravity (√(GM/r)).'}
+                    </p>
                   </div>
                   <span className="md-tag-pill">
-                    {lang === 'es' ? 'Entrada física' : 'Model input'}
+                    {lang === 'es' ? 'Supuesto del modelo' : 'Model assumption'}
                   </span>
                 </div>
 
@@ -1620,20 +1689,23 @@ export function App({ user, onSignOut }: AppProps) {
                       {lang === 'es' ? 'Riesgo de polvo electrostático' : 'Electrostatic dust risk'}
                     </span>
                     <strong className="md-env-val marginal">
-                      △ {report.site.electrostaticDustRisk ?? 'MODERATE'}
+                      △ {dustRiskLabel(report.site.electrostaticDustRisk, lang)}
                     </strong>
                   </div>
                   <div className="md-env-cell">
                     <span className="md-caption">
                       {lang === 'es' ? 'Anomalía magnética' : 'Magnetic anomaly'}
                     </span>
-                    <strong className="md-env-val">{report.site.magneticAnomalynT ?? 2} nT</strong>
+                    <strong className="md-env-val">
+                      {report.site.magneticAnomalynT ?? '—'} nT{' '}
+                      <small>({lang === 'es' ? 'supuesto' : 'assumed'})</small>
+                    </strong>
                   </div>
                   <div className="md-env-cell">
                     <span className="md-caption">
                       {lang === 'es'
-                        ? 'Índice de interacción exosfera'
-                        : 'Exosphere interaction index'}
+                        ? 'Exposición a la exosfera (escala 0–1)'
+                        : 'Exosphere exposure (0–1 scale)'}
                     </span>
                     <strong className="md-env-val">
                       {report.site.exosphereInteractionIndex ?? 0.25}
@@ -1641,35 +1713,17 @@ export function App({ user, onSignOut }: AppProps) {
                   </div>
                   <div className="md-env-cell">
                     <span className="md-caption">
-                      {lang === 'es' ? 'Velocidad orbital' : 'Orbital velocity'}
+                      {lang === 'es'
+                        ? 'Velocidad orbital en superficie'
+                        : 'Orbital velocity at the surface'}
                     </span>
-                    <strong className="md-env-val">
-                      {kpi.kinematics.orbitalVelocityKmS} km/s
-                    </strong>
+                    <strong className="md-env-val">{kpi.kinematics.orbitalVelocityKmS} km/s</strong>
                   </div>
                   <div className="md-env-cell">
                     <span className="md-caption">
                       {lang === 'es' ? 'Velocidad de escape' : 'Escape velocity'}
                     </span>
                     <strong className="md-env-val">{kpi.kinematics.escapeVelocityKmS} km/s</strong>
-                  </div>
-                  <div className="md-env-cell">
-                    <span className="md-caption">
-                      {lang === 'es'
-                        ? 'Acimut óptimo de aproximación'
-                        : 'Optimal approach azimuth'}
-                    </span>
-                    <strong className="md-env-val">
-                      {kpi.kinematics.optimalApproachAzimuthDeg}°
-                    </strong>
-                  </div>
-                  <div className="md-env-cell">
-                    <span className="md-caption">
-                      {lang === 'es' ? 'Elipse de alunizaje 3-sigma' : '3-sigma landing ellipse'}
-                    </span>
-                    <strong className="md-env-val">
-                      {kpi.kinematics.landingEllipse3SigmaKm} km
-                    </strong>
                   </div>
                 </div>
               </section>
@@ -1696,15 +1750,6 @@ export function App({ user, onSignOut }: AppProps) {
                         ? `Eventos de Salida y Ocultación (${report.events.length})`
                         : `Rise & Set Horizon Events (${report.events.length})`}
                     </button>
-                    <button
-                      type="button"
-                      className={
-                        sheetBottomTab === 'spaceengine' ? 'md-tab-btn active' : 'md-tab-btn'
-                      }
-                      onClick={() => setSheetBottomTab('spaceengine')}
-                    >
-                      {lang === 'es' ? 'Validación 3D SpaceEngine' : '3D SpaceEngine Validation'}
-                    </button>
                   </div>
                   <span className="md-mono-caption">
                     {lang === 'es' ? 'Origen:' : 'Source:'}{' '}
@@ -1725,9 +1770,7 @@ export function App({ user, onSignOut }: AppProps) {
                           <th>{lang === 'es' ? "Época UTC ('t')" : "UTC Epoch ('t')"}</th>
                           <th>{lang === 'es' ? 'Cuerpo' : 'Body'}</th>
                           <th>{lang === 'es' ? "Acimut ('az_deg')" : "Azimuth ('az_deg')"}</th>
-                          <th>
-                            {lang === 'es' ? "Elevación ('el_deg')" : "Elevation ('el_deg')"}
-                          </th>
+                          <th>{lang === 'es' ? "Elevación ('el_deg')" : "Elevation ('el_deg')"}</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -1737,9 +1780,7 @@ export function App({ user, onSignOut }: AppProps) {
                             <td className="mono">{row.t}</td>
                             <td>
                               <span className={`md-body-pill ${row.cuerpo}`}>
-                                <i
-                                  className={`md-dot ${row.cuerpo === 'sol' ? 'sun' : 'earth'}`}
-                                />
+                                <i className={`md-dot ${row.cuerpo === 'sol' ? 'sun' : 'earth'}`} />
                                 {row.cuerpo === 'sol'
                                   ? lang === 'es'
                                     ? 'Sol'
@@ -1800,56 +1841,6 @@ export function App({ user, onSignOut }: AppProps) {
                     </table>
                   </div>
                 )}
-
-                {sheetBottomTab === 'spaceengine' && (
-                  <div className="md-spaceengine-box">
-                    <p className="md-caption">
-                      <strong>
-                        {lang === 'es'
-                          ? 'Cápsula de Validación Visual 3D (SpaceEngine 0.990):'
-                          : '3D Visual Validation Capsule (SpaceEngine 0.990):'}
-                      </strong>{' '}
-                      {lang === 'es'
-                        ? 'ORYSEL calcula la cinemática y el KPI determinista; usa estas coordenadas exactas para contrastar visualmente el relieve LOLA y las sombras rasantes en 3D:'
-                        : 'ORYSEL computes deterministic kinematics and the viability KPI; use these exact coordinates to visually cross-check LOLA terrain and low-angle shadows in 3D:'}
-                    </p>
-                    <div className="md-se-grid">
-                      <div>
-                        <span>{lang === 'es' ? 'Objetivo' : 'Target'}</span>
-                        <strong>Moon ({report.site.name})</strong>
-                      </div>
-                      <div>
-                        <span>
-                          {lang === 'es'
-                            ? 'Coordenadas Selenográficas'
-                            : 'Selenographic Coordinates'}
-                        </span>
-                        <strong className="mono">
-                          Lat {report.site.lat.toFixed(4)}° · Lon {report.site.lon.toFixed(4)}° ·
-                          Alt {report.site.heightKm.toFixed(3)} km
-                        </strong>
-                      </div>
-                      <div>
-                        <span>
-                          {lang === 'es' ? 'Época UTC Sincronizada' : 'Synchronized UTC Epoch'}
-                        </span>
-                        <strong className="mono">{activeSample.t}</strong>
-                      </div>
-                      <div>
-                        <span>
-                          {lang === 'es'
-                            ? 'Ángulos Calculados por ORYSEL'
-                            : 'ORYSEL Computed Angles'}
-                        </span>
-                        <strong className="mono">
-                          {lang === 'es' ? 'Sol' : 'Sun'} El {activeSample.sun_el.toFixed(2)}° (Az{' '}
-                          {activeSample.sun_az.toFixed(1)}°) | {lang === 'es' ? 'Tierra' : 'Earth'}{' '}
-                          El {activeSample.earth_el.toFixed(2)}°
-                        </strong>
-                      </div>
-                    </div>
-                  </div>
-                )}
               </section>
 
               {/* Local Horizon 360° & Sky Visibility Polar Radar */}
@@ -1883,13 +1874,15 @@ export function App({ user, onSignOut }: AppProps) {
 
                 <div
                   className={`md-panel md-exec-kpi-card ${
-                    kpi.verdict === 'GO' ? 'viable' : kpi.verdict === 'CAUTION' ? 'marginal' : 'no-go'
+                    kpi.verdict === 'GO'
+                      ? 'viable'
+                      : kpi.verdict === 'CAUTION'
+                        ? 'marginal'
+                        : 'no-go'
                   }`}
                 >
                   <span className="md-eyebrow">
-                    {lang === 'es'
-                      ? 'KPI DE VIABILIDAD CONSOLIDADO'
-                      : 'CONSOLIDATED VIABILITY KPI'}
+                    {lang === 'es' ? 'KPI DE VIABILIDAD CONSOLIDADO' : 'CONSOLIDATED VIABILITY KPI'}
                   </span>
                   <div className="md-exec-kpi-score-row">
                     <strong className="md-exec-kpi-big">{kpi.scorePct}%</strong>
@@ -1906,9 +1899,7 @@ export function App({ user, onSignOut }: AppProps) {
               {/* Row 2: 2 Check Cards on Left + 2x2 Subscore Grid on Right (Matches dc_sheet2_edu.pdf) */}
               <section className="md-exec-checks-grid">
                 <div className="md-exec-checks-left">
-                  <div
-                    className={`md-panel md-exec-check-card ${kpi.commLinkOk ? 'ok' : 'veto'}`}
-                  >
+                  <div className={`md-panel md-exec-check-card ${kpi.commLinkOk ? 'ok' : 'veto'}`}>
                     <strong className="md-exec-check-title">
                       {kpi.commLinkOk ? '✓' : '×'}{' '}
                       {lang === 'es'
@@ -1927,24 +1918,22 @@ export function App({ user, onSignOut }: AppProps) {
                   </div>
 
                   <div
-                    className={`md-panel md-exec-check-card ${
-                      kpi.orbiterPhotoLoS ? 'ok' : 'veto'
-                    }`}
+                    className={`md-panel md-exec-check-card ${kpi.orbiterPhotoLoS ? 'ok' : 'veto'}`}
                   >
                     <strong className="md-exec-check-title">
                       {kpi.orbiterPhotoLoS ? '✓' : '×'}{' '}
                       {lang === 'es'
-                        ? 'Visibilidad Satélite Orbital (Confirmación Fotográfica)'
-                        : 'Orbital Satellite Visibility (Photo Confirmation)'}
+                        ? 'Visibilidad del satélite (supuesto del modelo)'
+                        : 'Satellite visibility (model assumption)'}
                     </strong>
                     <p className="md-caption">
                       {kpi.orbiterPhotoLoS
                         ? lang === 'es'
-                          ? 'Cobertura cenital libre de sombras topográficas para confirmar el alunizaje.'
-                          : 'Zenithal pass clear of topographic shadows to confirm touchdown.'
+                          ? `El modelo supone un paso del satélite a ${report.site.orbiterPassElDeg ?? '—'}° de elevación, por encima del horizonte del sitio.`
+                          : `The model assumes a satellite pass at ${report.site.orbiterPassElDeg ?? '—'}° elevation, above the site's horizon.`
                         : lang === 'es'
-                          ? 'VETO: Punto ciego geométrico impide confirmación visual desde el orbitador.'
-                          : 'VETO: Geometric blind spot prevents visual confirmation from the orbiter.'}
+                          ? `Veto: el paso supuesto del satélite (${report.site.orbiterPassElDeg ?? '—'}°) queda tapado por el horizonte del sitio.`
+                          : `Veto: the assumed satellite pass (${report.site.orbiterPassElDeg ?? '—'}°) is hidden by the site's horizon.`}
                     </p>
                   </div>
                 </div>
@@ -1970,9 +1959,7 @@ export function App({ user, onSignOut }: AppProps) {
 
                   <div className="md-panel md-exec-subscore-box">
                     <div className="md-exec-subscore-head">
-                      <span>
-                        {lang === 'es' ? 'Enlace y Telemetría' : 'Link & Telemetry'}
-                      </span>
+                      <span>{lang === 'es' ? 'Enlace y Telemetría' : 'Link & Telemetry'}</span>
                       <strong>{kpi.subscores.communication}/100</strong>
                     </div>
                     <div className="md-mini-track">
@@ -1990,9 +1977,7 @@ export function App({ user, onSignOut }: AppProps) {
 
                   <div className="md-panel md-exec-subscore-box">
                     <div className="md-exec-subscore-head">
-                      <span>
-                        {lang === 'es' ? 'Acimut / Topografía' : 'Azimuth / Topography'}
-                      </span>
+                      <span>{lang === 'es' ? 'Acimut / Topografía' : 'Azimuth / Topography'}</span>
                       <strong>{kpi.subscores.azimuthTopography}/100</strong>
                     </div>
                     <div className="md-mini-track">
@@ -2002,9 +1987,21 @@ export function App({ user, onSignOut }: AppProps) {
                       />
                     </div>
                     <span className="md-caption">
-                      {lang === 'es'
-                        ? `Acimut óptimo ${kpi.kinematics.optimalApproachAzimuthDeg}° · Elipse 3σ ±${kpi.kinematics.landingEllipse3SigmaKm} km`
-                        : `Optimal azimuth ${kpi.kinematics.optimalApproachAzimuthDeg}° · 3σ ellipse ±${kpi.kinematics.landingEllipse3SigmaKm} km`}
+                      {report.site.horizonSource === 'supuesto'
+                        ? lang === 'es'
+                          ? 'Horizonte supuesto (no medido) · Sol máx. ' +
+                            report.metrics.max_sun_el.toFixed(1) +
+                            '°'
+                          : 'Assumed horizon (not measured) · Max Sun ' +
+                            report.metrics.max_sun_el.toFixed(1) +
+                            '°'
+                        : lang === 'es'
+                          ? 'Horizonte liso (sin relieve) · Sol máx. ' +
+                            report.metrics.max_sun_el.toFixed(1) +
+                            '°'
+                          : 'Smooth horizon (no terrain) · Max Sun ' +
+                            report.metrics.max_sun_el.toFixed(1) +
+                            '°'}
                     </span>
                   </div>
 
@@ -2021,8 +2018,8 @@ export function App({ user, onSignOut }: AppProps) {
                     </div>
                     <span className="md-caption">
                       {lang === 'es'
-                        ? `Polvo ${report.site.electrostaticDustRisk ?? 'LOW'} · Campo ${report.site.magneticAnomalynT ?? 2} nT`
-                        : `Dust ${report.site.electrostaticDustRisk ?? 'LOW'} · Mag ${report.site.magneticAnomalynT ?? 2} nT`}
+                        ? `Supuesto del modelo · polvo ${dustRiskLabel(report.site.electrostaticDustRisk, lang).toLowerCase()}`
+                        : `Model assumption · ${dustRiskLabel(report.site.electrostaticDustRisk, lang).toLowerCase()} dust`}
                     </span>
                   </div>
                 </div>
@@ -2031,45 +2028,45 @@ export function App({ user, onSignOut }: AppProps) {
               {/* Row 3: Unified Dark Container (Sunrise/Earthrise + TEAM MODEL VERDICT + 4-column breakdown) */}
               <section className="md-team-verdict-container">
                 <div className="md-two-col-grid">
-                  <div className="md-panel md-countdown-card">
-                    <span className="md-caption">
-                      ☀️ {lang === 'es' ? 'Sol sobre el horizonte' : 'Sunrise / Solar status'}
-                    </span>
-                    <div className="md-countdown-value">
-                      {activeSample.sun_el > 0
-                        ? lang === 'es'
-                          ? 'Ahora en el cielo'
-                          : 'In the sky now'
-                        : nextCrossings.sunDelta}
-                    </div>
-                    <div className="md-caption">
-                      {activeSample.sun_el > 0
-                        ? lang === 'es'
-                          ? `Elevación actual +${activeSample.sun_el.toFixed(1)}° · Próxima puesta en ${nextCrossings.sunDelta}`
-                          : `Current elevation +${activeSample.sun_el.toFixed(1)}° · Next set in ${nextCrossings.sunDelta}`
-                        : nextCrossings.sunIso}
-                    </div>
-                  </div>
-
-                  <div className="md-panel md-countdown-card">
-                    <span className="md-caption">
-                      🌍 {lang === 'es' ? 'Tierra en el cielo' : 'Earthrise / Radio status'}
-                    </span>
-                    <div className="md-countdown-value">
-                      {activeSample.earth_el > 0
-                        ? lang === 'es'
-                          ? 'Ahora en el cielo'
-                          : 'In the sky now'
-                        : nextCrossings.earthDelta}
-                    </div>
-                    <div className="md-caption">
-                      {activeSample.earth_el > 0
-                        ? lang === 'es'
-                          ? `La Tierra se mantiene visible (${activeSample.earth_el.toFixed(1)}° de elevación)`
-                          : `Earth stays in the sky (${activeSample.earth_el.toFixed(1)}° elevation)`
-                        : nextCrossings.earthIso}
-                    </div>
-                  </div>
+                  {(['sun', 'earth'] as const).map((body) => {
+                    const visible =
+                      body === 'sun' ? activeSample.sun_visible : activeSample.earth_visible
+                    const el = body === 'sun' ? activeSample.sun_el : activeSample.earth_el
+                    const nextEv = body === 'sun' ? nextCrossings.sunNext : nextCrossings.earthNext
+                    const d = body === 'sun' ? nextCrossings.sunDelta : nextCrossings.earthDelta
+                    const when = body === 'sun' ? nextCrossings.sunIso : nextCrossings.earthIso
+                    const es = lang === 'es'
+                    return (
+                      <div key={body} className="md-panel md-countdown-card">
+                        <span className="md-caption">
+                          {body === 'sun' ? '☀️ ' : '🌍 '}
+                          {body === 'sun' ? (es ? 'Sol' : 'Sun') : es ? 'Tierra' : 'Earth'}
+                        </span>
+                        <div className="md-countdown-value">
+                          {visible
+                            ? es
+                              ? 'Sobre el horizonte'
+                              : 'Above the horizon'
+                            : nextEv
+                              ? `${es ? 'Sale en' : 'Rises in'} ${d}`
+                              : es
+                                ? 'No sale en esta ventana'
+                                : 'Does not rise in this window'}
+                        </div>
+                        <div className="md-caption">
+                          {es ? 'Elevación' : 'Elevation'} {el > 0 ? '+' : ''}
+                          {el.toFixed(1)}° ·{' '}
+                          {visible
+                            ? nextEv
+                              ? `${es ? 'se oculta en' : 'sets in'} ${d}`
+                              : es
+                                ? 'no se oculta en esta ventana'
+                                : 'does not set in this window'
+                            : when}
+                        </div>
+                      </div>
+                    )
+                  })}
                 </div>
 
                 <div className="md-panel md-team-model-verdict-box">
@@ -2080,9 +2077,7 @@ export function App({ user, onSignOut }: AppProps) {
                       </span>
                       <div className="md-team-score-inline">
                         <strong>{kpi.scorePct}</strong>
-                        <span>
-                          {lang === 'es' ? 'Puntuación / 100' : 'Model score / 100'}
-                        </span>
+                        <span>{lang === 'es' ? 'Puntuación / 100' : 'Model score / 100'}</span>
                       </div>
                     </div>
                     <span className="md-tag-pill">
@@ -2107,15 +2102,11 @@ export function App({ user, onSignOut }: AppProps) {
                         ? 'Enlace directo Tierra-Tripulación'
                         : 'Direct Earth-crew link'}
                     </span>
-                    <span
-                      className={`md-team-check-pill ${
-                        kpi.orbiterPhotoLoS ? 'ok' : 'no'
-                      }`}
-                    >
+                    <span className={`md-team-check-pill ${kpi.orbiterPhotoLoS ? 'ok' : 'no'}`}>
                       {kpi.orbiterPhotoLoS ? '✓' : '×'}{' '}
                       {lang === 'es'
-                        ? 'Visibilidad de orbitador (confirmación fotográfica)'
-                        : 'Orbiter visibility (photo confirmation)'}
+                        ? 'Satélite visible (supuesto)'
+                        : 'Satellite visible (assumed)'}
                     </span>
                   </div>
                 </div>
@@ -2196,11 +2187,7 @@ export function App({ user, onSignOut }: AppProps) {
               </section>
 
               {/* Row 4: Pedagogical Sky Chart ("EXPLORA EL CIELO LUNAR" + "Luz solar y comunicación") */}
-              <PedagogicalSkyChart
-                report={report}
-                sample={activeSample}
-                lang={lang}
-              />
+              <PedagogicalSkyChart report={report} sample={activeSample} lang={lang} />
             </>
           )}
 
@@ -2226,19 +2213,29 @@ export function App({ user, onSignOut }: AppProps) {
                         ? 'Guía interactiva sin saturación de tablas'
                         : 'Interactive guide without raw table overload'}
                     </span>
-                    <span className="md-tag-pill">SPICE DE440 + LOLA</span>
+                    <span className="md-tag-pill">
+                      {report.site.horizonSource === 'supuesto'
+                        ? lang === 'es'
+                          ? 'SPICE DE440 · horizonte supuesto'
+                          : 'SPICE DE440 · assumed horizon'
+                        : lang === 'es'
+                          ? 'SPICE DE440 · horizonte liso'
+                          : 'SPICE DE440 · smooth horizon'}
+                    </span>
                   </div>
                 </div>
 
                 <div
                   className={`md-panel md-exec-kpi-card ${
-                    kpi.verdict === 'GO' ? 'viable' : kpi.verdict === 'CAUTION' ? 'marginal' : 'no-go'
+                    kpi.verdict === 'GO'
+                      ? 'viable'
+                      : kpi.verdict === 'CAUTION'
+                        ? 'marginal'
+                        : 'no-go'
                   }`}
                 >
                   <span className="md-eyebrow">
-                    {lang === 'es'
-                      ? 'KPI DE VIABILIDAD CONSOLIDADO'
-                      : 'CONSOLIDATED VIABILITY KPI'}
+                    {lang === 'es' ? 'KPI DE VIABILIDAD CONSOLIDADO' : 'CONSOLIDATED VIABILITY KPI'}
                   </span>
                   <div className="md-exec-kpi-score-row">
                     <strong className="md-exec-kpi-big">{kpi.scorePct}%</strong>
@@ -2327,25 +2324,26 @@ export function App({ user, onSignOut }: AppProps) {
                   </span>
                   <h3 className="md-h2">
                     {lang === 'es'
-                      ? 'Exosfera (~2 km), Polvo y Remolinos Magnéticos'
-                      : 'Exosphere (~2 km), Dust & Magnetic Swirls'}
+                      ? 'Exosfera, polvo y remolinos magnéticos'
+                      : 'Exosphere, dust and magnetic swirls'}
                   </h3>
                   <p className="md-edu-body">
                     {lang === 'es' ? (
                       <>
-                        La Luna posee una exosfera superficial tenue (~2 km). En el terminador
-                        (amanecer/atardecer), la radiación UV carga electrostáticamente el regolito
-                        y lo hace levitar. En <strong>Reiner Gamma</strong>, una anomalía magnética
-                        cortical de <strong>{report.site.magneticAnomalynT ?? 28} nT</strong> forma
-                        una mini-magnetosfera que desvía el viento solar y protege la superficie.
+                        La Luna no tiene aire para respirar: solo una exosfera extremadamente tenue,
+                        casi un vacío. En la frontera entre el día y la noche, la luz ultravioleta
+                        puede cargar eléctricamente el polvo fino y hacerlo flotar. En{' '}
+                        <strong>Reiner Gamma</strong> hay una anomalía magnética en la corteza que
+                        desvía parte del viento solar; por eso ese suelo se ve más claro (un
+                        «remolino lunar»).
                       </>
                     ) : (
                       <>
-                        The Moon has a tenuous surface-bounded exosphere (~2 km). Along the day/night
-                        terminator, UV radiation charges regolith grains electrostatically, causing
-                        abrasive dust levitation. At <strong>Reiner Gamma</strong>, a{' '}
-                        <strong>{report.site.magneticAnomalynT ?? 28} nT</strong> crustal magnetic
-                        anomaly forms a mini-magnetosphere that deflects solar wind particles.
+                        The Moon has no air to breathe: only an extremely thin exosphere, almost a
+                        vacuum. Along the day/night boundary, ultraviolet light can charge fine dust
+                        and make it float. At <strong>Reiner Gamma</strong> a magnetic anomaly in
+                        the crust deflects part of the solar wind, which is why that ground looks
+                        brighter (a «lunar swirl»).
                       </>
                     )}
                   </p>
@@ -2353,11 +2351,7 @@ export function App({ user, onSignOut }: AppProps) {
               </section>
 
               {/* Row 3: Pedagogical Sky Chart ("EXPLORA EL CIELO LUNAR" + "Luz solar y comunicación") */}
-              <PedagogicalSkyChart
-                report={report}
-                sample={activeSample}
-                lang={lang}
-              />
+              <PedagogicalSkyChart report={report} sample={activeSample} lang={lang} />
 
               {/* Row 4: 6 Guided Metric Cards in a single row (Exact match to dc_sheet3_kids.pdf) */}
               <section className="md-six-metrics-row">
@@ -2439,17 +2433,15 @@ export function App({ user, onSignOut }: AppProps) {
 
                 <div className="md-panel md-edu-metric-card">
                   <span className="md-caption">
-                    {lang === 'es'
-                      ? 'Acimut óptimo de aproximación'
-                      : 'Optimal approach azimuth'}
+                    {lang === 'es' ? 'Altura máxima de la Tierra' : 'Highest Earth elevation'}
                   </span>
                   <strong className="md-edu-metric-val">
-                    {kpi.kinematics.optimalApproachAzimuthDeg}°
+                    {report.metrics.max_earth_el.toFixed(1)}°
                   </strong>
                   <span className="md-caption">
                     {lang === 'es'
-                      ? 'Corredor con menor pendiente local'
-                      : 'Lowest local slope corridor'}
+                      ? 'Más alta sobre el horizonte = enlace de radio más seguro'
+                      : 'Higher above the horizon = safer radio link'}
                   </span>
                 </div>
               </section>
@@ -2555,9 +2547,7 @@ export function App({ user, onSignOut }: AppProps) {
                   </strong>
                 </div>
 
-                <div
-                  className={`md-panel md-kids-check-tile ${kpi.commLinkOk ? 'yes' : 'no'}`}
-                >
+                <div className={`md-panel md-kids-check-tile ${kpi.commLinkOk ? 'yes' : 'no'}`}>
                   <span className="md-kids-emoji">🌍</span>
                   <h4>
                     {lang === 'es'
@@ -2576,9 +2566,7 @@ export function App({ user, onSignOut }: AppProps) {
                 </div>
 
                 <div
-                  className={`md-panel md-kids-check-tile ${
-                    kpi.orbiterPhotoLoS ? 'yes' : 'no'
-                  }`}
+                  className={`md-panel md-kids-check-tile ${kpi.orbiterPhotoLoS ? 'yes' : 'no'}`}
                 >
                   <span className="md-kids-emoji">🛰️</span>
                   <h4>
@@ -2589,8 +2577,8 @@ export function App({ user, onSignOut }: AppProps) {
                   <strong className="md-kids-answer">
                     {kpi.orbiterPhotoLoS
                       ? lang === 'es'
-                        ? '¡Sí! Vista despejada desde el espacio'
-                        : 'Yes! Clear view from space'
+                        ? '¡Sí, según nuestro modelo!'
+                        : 'Yes, according to our model!'
                       : lang === 'es'
                         ? '¡No! Estamos en un punto ciego'
                         : 'No! Hidden in a blind spot'}
@@ -2650,7 +2638,7 @@ export function App({ user, onSignOut }: AppProps) {
                 }}
                 className="md-strip-select"
               >
-                {SITES.map((s) => (
+                {sites.map((s) => (
                   <option key={s.id} value={s.id}>
                     {s.name}
                   </option>
@@ -2659,9 +2647,7 @@ export function App({ user, onSignOut }: AppProps) {
             </div>
 
             <div className="md-strip-cell">
-              <span className="md-label">
-                {lang === 'es' ? 'VENTANA BASE' : 'BASE WINDOW'}
-              </span>
+              <span className="md-label">{lang === 'es' ? 'VENTANA BASE' : 'BASE WINDOW'}</span>
               <strong className="md-strip-val">14 NOV 2026</strong>
             </div>
 
@@ -2703,7 +2689,7 @@ export function App({ user, onSignOut }: AppProps) {
           {/* 3 Separate Real Photographic Moon Cards + "Comparación de métricas" + "Comparar fechas" */}
           {compareLeftData && compareRightData && (
             <ThreeMoonsComparisonSection
-              sites={SITES}
+              sites={sites}
               siteA={compareLeftData}
               siteB={compareRightData}
               siteC={compareThirdData}
@@ -2854,9 +2840,7 @@ export function App({ user, onSignOut }: AppProps) {
                         <span className="md-label">
                           {lang === 'es' ? 'TIERRA VISIBLE' : 'EARTH VISIBLE'}
                         </span>
-                        <strong className="md-mini-kpi-val">
-                          {focusedCompareStats.earthPct}%
-                        </strong>
+                        <strong className="md-mini-kpi-val">{focusedCompareStats.earthPct}%</strong>
                         <span className="md-caption">
                           {lang === 'es' ? 'Línea de visión' : 'Line of sight'}
                         </span>
@@ -2876,9 +2860,7 @@ export function App({ user, onSignOut }: AppProps) {
                         </h3>
                       </div>
                       <span className="md-tag-pill">
-                        {lang === 'es'
-                          ? `RETRASO +${delayDays} DÍAS`
-                          : `DELAY +${delayDays} DAYS`}
+                        {lang === 'es' ? `RETRASO +${delayDays} DÍAS` : `DELAY +${delayDays} DAYS`}
                       </span>
                     </div>
 
@@ -2972,9 +2954,8 @@ export function App({ user, onSignOut }: AppProps) {
                           onClick={() => {
                             if (!compareThirdId) {
                               const fallbackC =
-                                SITES.find(
-                                  (s) => s.id !== compareLeftId && s.id !== compareRightId,
-                                )?.id ?? 'apollo11'
+                                sites.find((s) => s.id !== compareLeftId && s.id !== compareRightId)
+                                  ?.id ?? 'apollo11'
                               updateCompareSiteC(fallbackC)
                             }
                             setCompareSlot('C')
@@ -2984,8 +2965,8 @@ export function App({ user, onSignOut }: AppProps) {
                           {compareThirdData
                             ? compareThirdData.site.name.split(' ')[0]
                             : lang === 'es'
-                              ? 'Luna 3'
-                              : 'Moon 3'}
+                              ? 'vacío'
+                              : 'empty'}
                         </button>
                       </div>
                     </div>
@@ -3088,8 +3069,8 @@ export function App({ user, onSignOut }: AppProps) {
                     <strong>LRO LOLA — Lunar Orbiter Laser Altimeter GDR</strong>
                     <p className="md-caption">
                       {lang === 'es'
-                        ? 'Altitud selenodésica y perfiles de máscara de horizonte para Mons Mouton (IM-2) y el cráter Shackleton.'
-                        : 'Selenodetic altitude and horizon mask profiles for Mons Mouton (IM-2) and Shackleton crater.'}
+                        ? 'Siguiente paso: perfiles de horizonte medidos con LOLA. Hoy los sitios usan horizonte liso y el de Shackleton es un supuesto, marcado como tal.'
+                        : 'Next step: horizon profiles measured with LOLA. Today the sites use a smooth horizon and the Shackleton one is an assumption, labelled as such.'}
                     </p>
                   </div>
                   <a
@@ -3146,21 +3127,27 @@ export function App({ user, onSignOut }: AppProps) {
               </div>
               <p className="md-caption">
                 {lang === 'es'
-                  ? `Nuestra instancia activa en ${AWS_BASE_URL} almacena 5,768 registros horarios extraídos directamente de NASA JPL Horizons. La diferencia cuadrática media (RMS) frente a nuestro kernel SPICE es de 0.008° en elevación solar y 0.032° en elevación terrestre.`
-                  : `Our live instance at ${AWS_BASE_URL} stores 5,768 hourly records fetched directly from NASA JPL Horizons. The RMS difference against our SPICE kernel is 0.008° in solar elevation and 0.032° in Earth elevation.`}
+                  ? `Comparamos cada hora del mes, en los ${SITES.length} sitios del catálogo, la posición del Sol y de la Tierra calculada con nuestro motor SPICE contra la que da NASA/JPL Horizons. Los registros de Horizons también se guardan en PostgreSQL en ${AWS_BASE_URL}.`
+                  : `For every hour of the month at the ${SITES.length} catalog sites, we compare the Sun and Earth positions from our SPICE engine with those from NASA/JPL Horizons. The Horizons records are also stored in PostgreSQL at ${AWS_BASE_URL}.`}
               </p>
               <div className="md-about-metrics-strip">
                 <div>
                   <span className="md-label">
-                    {lang === 'es' ? 'RMS ELEVACIÓN SOLAR' : 'SUN ELEVATION RMS'}
+                    {lang === 'es'
+                      ? 'DIFERENCIA MÁXIMA EN ELEVACIÓN'
+                      : 'LARGEST ELEVATION DIFFERENCE'}
                   </span>
-                  <strong>0.008°</strong>
+                  <strong>{validation ? `${validation.max_el_diff_deg.toFixed(6)}°` : '—'}</strong>
                 </div>
                 <div>
                   <span className="md-label">
-                    {lang === 'es' ? 'RMS ELEVACIÓN TIERRA' : 'EARTH ELEVATION RMS'}
+                    {lang === 'es' ? 'COMPARACIONES' : 'COMPARISONS'}
                   </span>
-                  <strong>0.032°</strong>
+                  <strong>
+                    {validation
+                      ? `${validation.comparisons.toLocaleString(lang === 'es' ? 'es-MX' : 'en-US')}`
+                      : '—'}
+                  </strong>
                 </div>
                 <div>
                   <span className="md-label">
@@ -3215,7 +3202,15 @@ export function App({ user, onSignOut }: AppProps) {
           viability={kpi}
           profile={profileMode}
           activeSample={activeSample}
-          userName={user.name}
+          userName={user.name.split(' ')[0]}
+          otherSites={Object.values(allSitesData)
+            .filter((d) => d.report.site.id !== report.site.id && d.report.viability)
+            .map((d) => ({
+              id: d.report.site.id,
+              name: d.report.site.name,
+              score: d.report.viability!.scorePct,
+              verdict: d.report.viability!.verdict,
+            }))}
           onSelectSiteId={(id: string) => setSiteId(id)}
           lang={lang}
         />

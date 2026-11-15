@@ -3,8 +3,9 @@ import { AWS_BASE_URL, type AwsTelemetryState } from '../ephemeris/awsApi.ts'
 import type { Sample, Site, ViabilityKPI } from '../ephemeris/types.ts'
 
 interface ArchitectureDefensePanelProps {
-  site: Site
-  viability: ViabilityKPI
+  /** Kept for callers; the panel no longer shows per-site model values. */
+  site?: Site
+  viability?: ViabilityKPI
   activeSample: Sample
   awsTelemetry: AwsTelemetryState
   clientFps: number
@@ -28,8 +29,6 @@ const { source, metrics } = await res.json();
 console.log('Fuente:', source, metrics);`
 
 export function ArchitectureDefensePanel({
-  site,
-  viability,
   awsTelemetry,
   clientFps,
   onClose,
@@ -51,17 +50,13 @@ export function ArchitectureDefensePanel({
     >
       <div className="modal-card modal-wide">
         <div className="modal-header">
-          <span className="pill-badge">
-            DEFENSA TÉCNICA · ARQUITECTURA EN 3 CAPAS, INTEROPERABILIDAD AWS & RESPALDO UP
-          </span>
+          <span className="pill-badge">ARQUITECTURA EN 3 CAPAS · API EN AWS · ASESORÍA</span>
           <button type="button" className="btn-ghost" onClick={onClose} aria-label="Cerrar modal">
             ✕ Cerrar
           </button>
         </div>
 
-        <h2 id="arch-modal-title">
-          Arquitectura Desacoplada en 3 Capas y API Abierta en Producción (AWS EC2)
-        </h2>
+        <h2 id="arch-modal-title">Arquitectura en 3 capas y API con cuentas en AWS EC2</h2>
 
         <div className="defense-grid">
           {/* (a) 3 Capas con telemetría en vivo */}
@@ -90,37 +85,32 @@ export function ArchitectureDefensePanel({
               </li>
               <li>
                 <strong>Capa 3 · Kernel Físico (`src/ephemeris/`):</strong> Cinemática en marco{' '}
-                <code>MOON_ME</code> con NASA NAIF SPICE (<code>timecraftjs</code> DE440),
-                propagadores basados en <strong>Leyes de Kepler</strong>, ecuaciones variacionales
-                de <strong>Euler-Lagrange</strong> y dispersión <strong>gaussiana 3σ</strong> (±
-                {viability.kinematics.landingEllipse3SigmaKm} km).
+                <code>MOON_ME</code> con NASA NAIF SPICE (<code>timecraftjs</code>, DE440):
+                posiciones aparentes del Sol y la Tierra (LT+S), cruces del horizonte al segundo y
+                ventanas de luz y comunicación. <em>Trabajo futuro:</em> trayectorias de descenso
+                (Kepler, Euler-Lagrange) y dispersión gaussiana del punto de alunizaje.
               </li>
             </ul>
           </div>
 
           {/* (b) Respaldo Académico Multidisciplinario UP */}
           <div className="defense-card">
-            <span className="pill-badge">B · RESPALDO ACADÉMICO Y COMITÉ ASESOR (UP)</span>
-            <h3>Validación Científica y de Ingeniería</h3>
+            <span className="pill-badge">B · ASESORÍA ACADÉMICA (UNIVERSIDAD POLITÉCNICA)</span>
+            <h3>Áreas de consulta</h3>
             <ul className="layer-list">
               <li>
-                <strong>Dr. Horacio (Programación y Arquitectura de Software):</strong> Diseño
-                desacoplado en 3 capas, estructura modular del Kernel en TypeScript (
-                <code>src/ephemeris/</code>) y optimización de rendimiento en cliente.
+                <strong>Programación y arquitectura de software:</strong> Dr. Horacio.
               </li>
               <li>
-                <strong>Prof. Jorge y Dr. Manuel Martínez (Electrónica y Telemetría):</strong>{' '}
-                Presupuesto de enlace Tierra-Luna, latencia en descargas continuas y filtro
-                determinante de Línea de Visión (LoS) con la tripulación y el satélite orbital.
+                <strong>Electrónica y telemetría:</strong> Prof. Jorge y Dr. Manuel Martínez.
               </li>
               <li>
-                <strong>Dr. Mendoza y Dr. Montero (Física Teórica y Probabilidad):</strong>{' '}
-                Estabilidad dinámica con ecuaciones de Euler-Lagrange, modelos probabilísticos de
-                distribución gaussiana para regolito y análisis de anomalías magnéticas locales como{' '}
-                <strong>Reiner Gamma ({site.magneticAnomalynT ?? 28} nT)</strong> y exosfera lunar
-                (~2 km).
+                <strong>Física y probabilidad:</strong> Dr. Mendoza y Dr. Montero.
               </li>
             </ul>
+            <p className="muted">
+              El cálculo y el código son del equipo ORYSEL; la asesoría orienta el trabajo futuro.
+            </p>
           </div>
         </div>
 
@@ -128,8 +118,8 @@ export function ArchitectureDefensePanel({
         <div className="interop-box">
           <div className="interop-header">
             <div>
-              <span className="pill-badge">C · INTEROPERABILIDAD & API ABIERTA EN AWS EC2</span>
-              <h3>Endpoints REST Públicos para Integración por Terceros</h3>
+              <span className="pill-badge">C · INTEROPERABILIDAD · API EN AWS EC2</span>
+              <h3>Endpoints REST para integración (requieren cuenta y token)</h3>
             </div>
             <div className="interop-links">
               <a

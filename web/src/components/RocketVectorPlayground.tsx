@@ -48,10 +48,8 @@ function evalCubicBezier(
   const x = uuu * p0.x + 3 * uu * t * p1.x + 3 * u * tt * p2.x + ttt * p3.x
   const y = uuu * p0.y + 3 * uu * t * p1.y + 3 * u * tt * p2.y + ttt * p3.y
 
-  const dx =
-    3 * uu * (p1.x - p0.x) + 6 * u * t * (p2.x - p1.x) + 3 * tt * (p3.x - p2.x)
-  const dy =
-    3 * uu * (p1.y - p0.y) + 6 * u * t * (p2.y - p1.y) + 3 * tt * (p3.y - p2.y)
+  const dx = 3 * uu * (p1.x - p0.x) + 6 * u * t * (p2.x - p1.x) + 3 * tt * (p3.x - p2.x)
+  const dy = 3 * uu * (p1.y - p0.y) + 6 * u * t * (p2.y - p1.y) + 3 * tt * (p3.y - p2.y)
 
   return { x, y, angle: Math.atan2(dy, dx) }
 }
@@ -409,59 +407,77 @@ export function RocketVectorPlayground({
         ctx.fill()
         ctx.font = '600 11px Inter, sans-serif'
         ctx.fillStyle = 'rgba(255,255,255,0.8)'
-        ctx.fillText(lang === 'es' ? 'Inicio' : 'Start', wpStart.x - 16, wpStart.y - 12)
-
-        // Waypoint 1: Earth Link Sphere
-        ctx.save()
-        const earthGrad = ctx.createRadialGradient(
-          wp1.x + 42,
-          wp1.y + 8,
-          4,
-          wp1.x + 48,
-          wp1.y + 14,
-          24,
-        )
-        earthGrad.addColorStop(0, '#8cbbff')
-        earthGrad.addColorStop(0.55, '#3b8cff')
-        earthGrad.addColorStop(1, '#162c54')
-        ctx.fillStyle = earthGrad
-        ctx.beginPath()
-        ctx.arc(wp1.x + 48, wp1.y + 14, 22, 0, Math.PI * 2)
-        ctx.fill()
-        ctx.fillStyle = '#ffffff'
-        ctx.font = '600 11px Inter, sans-serif'
         ctx.fillText(
-          lang === 'es' ? '1. Señal Tierra' : '1. Earth Link',
-          wp1.x + 16,
-          wp1.y + 52,
+          lang === 'es' ? 'Despegue (Tierra)' : 'Launch (Earth)',
+          wpStart.x - 16,
+          wpStart.y - 12,
         )
-        ctx.restore()
 
-        // Waypoint 2: Solar Window Sphere
+        // The Sun is far away (it only gives light): drawn in a corner, never on the route.
         ctx.save()
-        const sunGrad = ctx.createRadialGradient(
-          wp2.x - 54,
-          wp2.y + 12,
-          4,
-          wp2.x - 50,
-          wp2.y + 16,
-          26,
-        )
-        sunGrad.addColorStop(0, '#fff3c4')
-        sunGrad.addColorStop(0.5, '#f7b32b')
-        sunGrad.addColorStop(1, 'rgba(247, 179, 43, 0.1)')
-        ctx.fillStyle = sunGrad
+        const sunCx = W - 34
+        const sunCy = 30
+        const farSun = ctx.createRadialGradient(sunCx, sunCy, 2, sunCx, sunCy, 22)
+        farSun.addColorStop(0, '#fff3c4')
+        farSun.addColorStop(0.45, '#f7b32b')
+        farSun.addColorStop(1, 'rgba(247, 179, 43, 0)')
+        ctx.fillStyle = farSun
         ctx.beginPath()
-        ctx.arc(wp2.x - 50, wp2.y + 16, 24, 0, Math.PI * 2)
+        ctx.arc(sunCx, sunCy, 22, 0, Math.PI * 2)
         ctx.fill()
         ctx.fillStyle = '#ffd98a'
-        ctx.font = '600 11px Inter, sans-serif'
-        ctx.fillText(
-          lang === 'es' ? '2. Energía Solar' : '2. Solar Power',
-          wp2.x - 88,
-          wp2.y + 54,
-        )
+        ctx.font = '600 10px Inter, sans-serif'
+        ctx.textAlign = 'right'
+        ctx.fillText(lang === 'es' ? 'Sol (muy lejos)' : 'Sun (very far)', sunCx - 26, sunCy + 4)
         ctx.restore()
+
+        // The trip starts at Earth
+        ctx.save()
+        const homeGrad = ctx.createRadialGradient(
+          wpStart.x - 2,
+          wpStart.y - 2,
+          2,
+          wpStart.x,
+          wpStart.y,
+          14,
+        )
+        homeGrad.addColorStop(0, '#8cbbff')
+        homeGrad.addColorStop(0.6, '#3b8cff')
+        homeGrad.addColorStop(1, '#162c54')
+        ctx.fillStyle = homeGrad
+        ctx.beginPath()
+        ctx.arc(wpStart.x, wpStart.y + 18, 12, 0, Math.PI * 2)
+        ctx.fill()
+        ctx.restore()
+
+        // Checkpoints on the route: the ship checks its own systems
+        const checkpoint = (x: number, y: number, color: string, text: string) => {
+          ctx.save()
+          ctx.strokeStyle = color
+          ctx.lineWidth = 2
+          ctx.setLineDash([4, 4])
+          ctx.beginPath()
+          ctx.arc(x, y, 14, 0, Math.PI * 2)
+          ctx.stroke()
+          ctx.setLineDash([])
+          ctx.fillStyle = color
+          ctx.font = '600 11px Inter, sans-serif'
+          ctx.textAlign = 'center'
+          ctx.fillText(text, x, y + 32)
+          ctx.restore()
+        }
+        checkpoint(
+          wp1.x,
+          wp1.y,
+          '#8cbbff',
+          lang === 'es' ? '1. Antena hacia la Tierra' : '1. Antenna to Earth',
+        )
+        checkpoint(
+          wp2.x,
+          wp2.y,
+          '#ffd98a',
+          lang === 'es' ? '2. Paneles solares abiertos' : '2. Solar panels open',
+        )
 
         // Waypoint 3/4: Real Photographic Moon Target (`moon-real.jpg`) with Saturn/Orbital Ring like `ejemplo de nave.jpeg`
         const moonX = wpEnd.x + 54
@@ -663,16 +679,16 @@ export function RocketVectorPlayground({
     }
     if (progress < 0.62) {
       return lang === 'es'
-        ? `Etapa 2 · Enlace con la Tierra y Sol: En ${site.name} tenemos ${viability.subscores.communication}% de señal de radio y energía solar activa.`
-        : `Stage 2 · Earth & Sun Link: At ${site.name} we have ${viability.subscores.communication}% radio signal and active solar power.`
+        ? `Etapa 2 · Revisión de sistemas: la antena apunta a la Tierra y los paneles reciben la luz del Sol, que está muy lejos. Rumbo a ${site.name}.`
+        : `Stage 2 · Systems check: the antenna points at Earth and the panels catch light from the faraway Sun. Heading to ${site.name}.`
     }
     return viability.isViable
       ? lang === 'es'
         ? `Etapa Final · Aproximación a ${site.name}: ¡Zona despejada! La nave puede aterrizar con visión directa a la Tierra.`
         : `Final Stage · Approach to ${site.name}: Clear zone! The spacecraft can land with direct line-of-sight to Earth.`
       : lang === 'es'
-        ? `Alerta en ${site.name}: Las montañas del cráter bloquean la señal con la Tierra. ¡Cambia a Modo Órbita o elige Reiner Gamma!`
-        : `Alert at ${site.name}: Crater mountains block the signal to Earth. Switch to Orbit Mode or pick Reiner Gamma!`
+        ? `Alerta en ${site.name}: desde ahí casi no se ve la Tierra, así que no podríamos hablar por radio. ¡Elige otro sitio!`
+        : `Alert at ${site.name}: Earth can hardly be seen from there, so we could not talk by radio. Pick another site!`
   }
 
   return (
@@ -788,7 +804,7 @@ export function RocketVectorPlayground({
               setIsAutoFlying(true)
             }}
           >
-            {lang === 'es' ? 'Inicio' : 'Start'}
+            {lang === 'es' ? 'Despegue' : 'Launch'}
           </button>
           <button
             type="button"
@@ -799,7 +815,7 @@ export function RocketVectorPlayground({
               setIsAutoFlying(true)
             }}
           >
-            {lang === 'es' ? '1 · Tierra' : '1 · Earth'}
+            {lang === 'es' ? '1 · Antena' : '1 · Antenna'}
           </button>
           <button
             type="button"
@@ -810,7 +826,7 @@ export function RocketVectorPlayground({
               setIsAutoFlying(true)
             }}
           >
-            {lang === 'es' ? '2 · Sol' : '2 · Sun'}
+            {lang === 'es' ? '2 · Paneles' : '2 · Panels'}
           </button>
           <button
             type="button"

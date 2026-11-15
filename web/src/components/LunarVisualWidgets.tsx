@@ -1,3 +1,4 @@
+import { profileHorizon } from '../ephemeris/events.ts'
 import type { Sample, Site, SiteReport } from '../ephemeris/types.ts'
 
 export interface OrbitalPositionProps {
@@ -38,16 +39,10 @@ export function OrbitalPositionCenital({ sample, lang = 'es' }: OrbitalPositionP
     <div className="md-orbital-card">
       <div className="md-orbital-head">
         <div>
-          <span className="md-eyebrow">
-            {lang === 'es' ? 'GEOMETRÍA LOCAL' : 'LOCAL GEOMETRY'}
-          </span>
-          <h3 className="md-h2">
-            {lang === 'es' ? 'Posición orbital' : 'Orbital position'}
-          </h3>
+          <span className="md-eyebrow">{lang === 'es' ? 'GEOMETRÍA LOCAL' : 'LOCAL GEOMETRY'}</span>
+          <h3 className="md-h2">{lang === 'es' ? 'Posición orbital' : 'Orbital position'}</h3>
         </div>
-        <span className="md-meta-label">
-          {lang === 'es' ? 'VISTA CENITAL' : 'TOP-DOWN VIEW'}
-        </span>
+        <span className="md-meta-label">{lang === 'es' ? 'VISTA CENITAL' : 'TOP-DOWN VIEW'}</span>
       </div>
 
       <svg
@@ -190,22 +185,13 @@ export function LocalHorizonAndSkyRow({ report, sample, lang = 'es' }: LocalHori
   const H = 220
   const PAD = { l: 38, r: 24, t: 20, b: 30 }
 
+  // Draw exactly the horizon the calculation used: the site's profile, or a flat
+  // 0° line when there is none (smooth sphere). Nothing is added for looks.
   const rawProfile = report.horizon.profile
+  const horizonAt = rawProfile && rawProfile.length > 0 ? profileHorizon(rawProfile) : () => 0
   const points: { az: number; el: number }[] = []
-  for (let az = 0; az <= 360; az += 5) {
-    let el = 3.5
-    if (rawProfile && rawProfile.length > 0) {
-      const idx = Math.min(rawProfile.length - 1, Math.floor((az / 360) * rawProfile.length))
-      const base = rawProfile[idx] || 0
-      el = Math.max(
-        0.8,
-        base + 3.2 + 2.4 * Math.sin((az * Math.PI) / 90) + 1.3 * Math.cos((az * Math.PI) / 60),
-      )
-    } else {
-      el = 4.2 + 2.8 * Math.sin(((az - 40) * Math.PI) / 90) + 1.6 * Math.cos((az * Math.PI) / 60)
-    }
-    points.push({ az, el })
-  }
+  for (let az = 0; az <= 360; az += 5) points.push({ az, el: horizonAt(az) })
+  const assumed = report.site.horizonSource === 'supuesto'
 
   const maxEl = Math.max(16, Math.ceil(Math.max(sample.sun_el, sample.earth_el, 14) / 5) * 5)
   const minEl = Math.min(0, Math.floor(Math.min(sample.sun_el, sample.earth_el, 0) / 5) * 5)
@@ -249,7 +235,19 @@ export function LocalHorizonAndSkyRow({ report, sample, lang = 'es' }: LocalHori
                 : `Elevation angle by azimuth (${report.site.name})`}
             </p>
           </div>
-          <span className="md-tag-pill">SPICE DE440 · LOLA</span>
+          <span className="md-tag-pill">
+            {rawProfile && rawProfile.length > 0
+              ? assumed
+                ? lang === 'es'
+                  ? 'Horizonte supuesto · no medido'
+                  : 'Assumed horizon · not measured'
+                : lang === 'es'
+                  ? 'Perfil de horizonte'
+                  : 'Horizon profile'
+              : lang === 'es'
+                ? 'Horizonte liso · sin relieve aún'
+                : 'Smooth horizon · no terrain yet'}
+          </span>
         </div>
 
         <svg
@@ -353,11 +351,11 @@ export function LocalHorizonAndSkyRow({ report, sample, lang = 'es' }: LocalHori
       <div className="md-panel">
         <div className="md-panel-header-row">
           <div>
-            <h3 className="md-h2">
-              {lang === 'es' ? 'Visibilidad del cielo' : 'Sky visibility'}
-            </h3>
+            <h3 className="md-h2">{lang === 'es' ? 'Visibilidad del cielo' : 'Sky visibility'}</h3>
             <p className="md-caption">
-              {lang === 'es' ? 'Vista polar · Cenit al horizonte' : 'Polar view · Zenith to horizon'}
+              {lang === 'es'
+                ? 'Vista polar · Cenit al horizonte'
+                : 'Polar view · Zenith to horizon'}
             </p>
           </div>
           <span className="md-info-circle" title="Proyección polar estereográfica">
@@ -516,12 +514,12 @@ export function TwentyFourHourOutlook({ report, selectedIndex, lang = 'es' }: Ou
       <div className="md-outlook-header">
         <div>
           <h3 className="md-h2">
-            {lang === 'es' ? 'Perspectiva de 24 horas' : '24-hour outlook'}
+            {lang === 'es' ? 'Ventanas de todo el periodo' : 'Windows over the whole period'}
           </h3>
           <p className="md-caption">
             {lang === 'es'
-              ? 'Iluminación solar y acceso directo a la Tierra'
-              : 'Illumination and direct-to-Earth access'}
+              ? 'Cuándo hay luz solar y cuándo se ve la Tierra, del inicio al fin del análisis'
+              : 'When there is sunlight and when Earth is in view, from start to end of the analysis'}
           </p>
         </div>
         <div className="md-outlook-legend">
@@ -535,11 +533,15 @@ export function TwentyFourHourOutlook({ report, selectedIndex, lang = 'es' }: Ou
       </div>
 
       <div className="md-outlook-axis">
-        <span>00:00</span>
-        <span>06:00</span>
-        <span>12:00</span>
-        <span>18:00</span>
-        <span>24:00</span>
+        {[0, 0.25, 0.5, 0.75, 1].map((f) => (
+          <span key={f}>
+            {new Date(t0 + f * tSpan).toLocaleDateString(lang === 'es' ? 'es-MX' : 'en-US', {
+              day: 'numeric',
+              month: 'short',
+              timeZone: 'UTC',
+            })}
+          </span>
+        ))}
       </div>
 
       <div className="md-outlook-track-row">
@@ -548,25 +550,15 @@ export function TwentyFourHourOutlook({ report, selectedIndex, lang = 'es' }: Ou
           <span>{lang === 'es' ? 'Iluminación solar' : 'Solar illumination'}</span>
         </div>
         <div className="md-outlook-track">
-          {sunWindows.length > 0 ? (
-            sunWindows.map((w, i) => (
-              <div
-                key={i}
-                className="md-outlook-fill sun"
-                style={{ left: `${w.left}%`, width: `${Math.max(4, w.width)}%` }}
-              />
-            ))
-          ) : (
+          {sunWindows.map((w, i) => (
             <div
+              key={i}
               className="md-outlook-fill sun"
-              style={{
-                left: '8%',
-                width: `${Math.max(0, report.metrics.sun_visible_pct * 0.85)}%`,
-              }}
+              style={{ left: `${w.left}%`, width: `${Math.max(0.5, w.width)}%` }}
             />
-          )}
+          ))}
           <div className="md-outlook-now-marker" style={{ left: `${nowPct}%` }}>
-            <span>{lang === 'es' ? 'AHORA' : 'NOW'}</span>
+            <span>{lang === 'es' ? 'INSTANTE' : 'SELECTED'}</span>
           </div>
         </div>
       </div>
@@ -577,23 +569,13 @@ export function TwentyFourHourOutlook({ report, selectedIndex, lang = 'es' }: Ou
           <span>{lang === 'es' ? 'Línea a Tierra' : 'Earth LOS'}</span>
         </div>
         <div className="md-outlook-track">
-          {earthWindows.length > 0 ? (
-            earthWindows.map((w, i) => (
-              <div
-                key={i}
-                className="md-outlook-fill earth"
-                style={{ left: `${w.left}%`, width: `${Math.max(4, w.width)}%` }}
-              />
-            ))
-          ) : (
+          {earthWindows.map((w, i) => (
             <div
+              key={i}
               className="md-outlook-fill earth"
-              style={{
-                left: '5%',
-                width: `${Math.max(0, report.metrics.earth_visible_pct * 0.9)}%`,
-              }}
+              style={{ left: `${w.left}%`, width: `${Math.max(0.5, w.width)}%` }}
             />
-          )}
+          ))}
           <div className="md-outlook-now-marker" style={{ left: `${nowPct}%` }} />
         </div>
       </div>
@@ -619,7 +601,12 @@ export function PedagogicalSkyChart({ report, sample, lang = 'es' }: Pedagogical
 
   const n = Math.max(1, report.series.length - 1)
   const xAt = (idx: number) => PAD.l + (idx / n) * (W - PAD.l - PAD.r)
-  const yAt = (el: number) => PAD.t + ((90 - el) / 180) * (H - PAD.t - PAD.b)
+  // Scale to the data (always including the 0° horizon) so a polar site whose
+  // Sun stays within a few degrees is readable instead of a flat line.
+  const allEl = report.series.flatMap((s) => [s.sun_el, s.earth_el])
+  const elTop = Math.min(90, Math.ceil((Math.max(0, ...allEl) + 2) / 5) * 5)
+  const elBottom = Math.max(-90, Math.floor((Math.min(0, ...allEl) - 2) / 5) * 5)
+  const yAt = (el: number) => PAD.t + ((elTop - el) / (elTop - elBottom)) * (H - PAD.t - PAD.b)
 
   const sunPath = report.series
     .map((s, i) => `${i ? 'L' : 'M'}${xAt(i).toFixed(1)},${yAt(s.sun_el).toFixed(1)}`)
@@ -628,8 +615,8 @@ export function PedagogicalSkyChart({ report, sample, lang = 'es' }: Pedagogical
     .map((s, i) => `${i ? 'L' : 'M'}${xAt(i).toFixed(1)},${yAt(s.earth_el).toFixed(1)}`)
     .join('')
 
-  const sunPct = Math.max(6, Math.min(100, report.metrics.sun_visible_pct))
-  const earthPct = Math.max(6, Math.min(100, report.metrics.earth_visible_pct))
+  const sunPct = Math.max(0, Math.min(100, report.metrics.sun_visible_pct))
+  const earthPct = Math.max(0, Math.min(100, report.metrics.earth_visible_pct))
 
   return (
     <section className="md-mission-control-card">
@@ -665,8 +652,7 @@ export function PedagogicalSkyChart({ report, sample, lang = 'es' }: Pedagogical
             </div>
             <div className="md-mc-body-readout">
               <span className="md-earth-text">
-                {lang === 'es' ? 'Tierra' : 'Earth'}{' '}
-                <strong>{sample.earth_el.toFixed(2)}°</strong>
+                {lang === 'es' ? 'Tierra' : 'Earth'} <strong>{sample.earth_el.toFixed(2)}°</strong>
               </span>
             </div>
           </div>
@@ -676,24 +662,12 @@ export function PedagogicalSkyChart({ report, sample, lang = 'es' }: Pedagogical
           </div>
 
           <svg viewBox={`0 0 ${W} ${H}`} className="md-elevation-svg">
-            <line
-              x1={PAD.l}
-              x2={W - PAD.r}
-              y1={yAt(90)}
-              y2={yAt(90)}
-              className="grid"
-            />
-            <text x={PAD.l - 8} y={yAt(90) + 4} textAnchor="end" className="tick">
-              90°
+            <line x1={PAD.l} x2={W - PAD.r} y1={yAt(elTop)} y2={yAt(elTop)} className="grid" />
+            <text x={PAD.l - 8} y={yAt(elTop) + 4} textAnchor="end" className="tick">
+              {elTop}°
             </text>
 
-            <line
-              x1={PAD.l}
-              x2={W - PAD.r}
-              y1={yAt(0)}
-              y2={yAt(0)}
-              className="horizon"
-            />
+            <line x1={PAD.l} x2={W - PAD.r} y1={yAt(0)} y2={yAt(0)} className="horizon" />
             <text x={PAD.l - 8} y={yAt(0) + 4} textAnchor="end" className="tick">
               0°
             </text>
@@ -704,12 +678,12 @@ export function PedagogicalSkyChart({ report, sample, lang = 'es' }: Pedagogical
             <line
               x1={PAD.l}
               x2={W - PAD.r}
-              y1={yAt(-90)}
-              y2={yAt(-90)}
+              y1={yAt(elBottom)}
+              y2={yAt(elBottom)}
               className="grid"
             />
-            <text x={PAD.l - 8} y={yAt(-90) + 4} textAnchor="end" className="tick">
-              -90°
+            <text x={PAD.l - 8} y={yAt(elBottom) + 4} textAnchor="end" className="tick">
+              {elBottom}°
             </text>
 
             <path d={sunPath} className="line sun" />
@@ -736,8 +710,8 @@ export function PedagogicalSkyChart({ report, sample, lang = 'es' }: Pedagogical
               </h3>
               <p className="md-caption" style={{ marginTop: '4px' }}>
                 {lang === 'es'
-                  ? 'Lee de izquierda a derecha. Las barras muestran un periodo de 24 horas en un sitio de la Luna.'
-                  : 'Read from left to right. The bars show a 24-hour period at this site on the Moon.'}
+                  ? 'Cada barra es todo el periodo analizado: la parte de color es el porcentaje del tiempo.'
+                  : 'Each bar is the whole analysed period: the coloured part is the share of the time.'}
               </p>
             </div>
 
@@ -751,17 +725,14 @@ export function PedagogicalSkyChart({ report, sample, lang = 'es' }: Pedagogical
                   : 'Yellow: the site receives sunlight for solar power.'}
               </span>
               <div className="md-outlook-track" style={{ marginTop: '6px' }}>
-                <div
-                  className="md-outlook-fill sun"
-                  style={{ left: '0%', width: `${sunPct}%` }}
-                />
+                <div className="md-outlook-fill sun" style={{ left: '0%', width: `${sunPct}%` }} />
               </div>
               <div className="md-time-slider-ticks" style={{ marginTop: '4px' }}>
-                <span>00:00</span>
-                <span>06:00</span>
-                <span>12:00</span>
-                <span>18:00</span>
-                <span>24:00</span>
+                <span>0%</span>
+                <span>25%</span>
+                <span>50%</span>
+                <span>75%</span>
+                <span>100%</span>
               </div>
             </div>
 
@@ -777,22 +748,22 @@ export function PedagogicalSkyChart({ report, sample, lang = 'es' }: Pedagogical
               <div className="md-outlook-track" style={{ marginTop: '6px' }}>
                 <div
                   className="md-outlook-fill earth"
-                  style={{ left: '6%', width: `${Math.min(92, earthPct)}%` }}
+                  style={{ left: '0%', width: `${earthPct}%` }}
                 />
               </div>
               <div className="md-time-slider-ticks" style={{ marginTop: '4px' }}>
-                <span>00:00</span>
-                <span>06:00</span>
-                <span>12:00</span>
-                <span>18:00</span>
-                <span>24:00</span>
+                <span>0%</span>
+                <span>25%</span>
+                <span>50%</span>
+                <span>75%</span>
+                <span>100%</span>
               </div>
             </div>
 
             <p className="md-caption">
               {lang === 'es'
-                ? 'Tramos oscuros: no hay luz o no hay vista de la Tierra, según la fila.'
-                : 'Dark segments: no sunlight or no line of sight to Earth, depending on the row.'}
+                ? `Luz del Sol ${sunPct.toFixed(0)}% del tiempo · Tierra a la vista ${earthPct.toFixed(0)}% del tiempo.`
+                : `Sunlight ${sunPct.toFixed(0)}% of the time · Earth in view ${earthPct.toFixed(0)}% of the time.`}
             </p>
           </div>
         </div>
@@ -814,8 +785,10 @@ export interface ThreeMoonCompareProps {
 }
 
 function formatDayHour(hours: number): string {
-  const d = Math.floor(hours / 24)
-  const h = Math.round(hours % 24)
+  // Round the total first so 47.99 h reads "2d 00h", not "1d 24h"
+  const total = Math.round(hours)
+  const d = Math.floor(total / 24)
+  const h = total % 24
   if (d === 0) return `${h}h`
   return `${d}d ${String(h).padStart(2, '0')}h`
 }
@@ -925,12 +898,7 @@ export function ThreeMoonsComparisonSection({
             preserveAspectRatio="none"
           />
           {/* Subtle dynamic terminator shading driven by selected site's illumination */}
-          <circle
-            cx={105 + shadowOffset}
-            cy="110"
-            r="64"
-            fill="rgba(6, 10, 18, 0.22)"
-          />
+          <circle cx={105 + shadowOffset} cy="110" r="64" fill="rgba(6, 10, 18, 0.22)" />
         </g>
 
         <circle
@@ -1004,15 +972,17 @@ export function ThreeMoonsComparisonSection({
           </div>
         </div>
 
-        {/* Moon Card 3 (Site C / Luna 3 - Teal/Cyan) */}
+        {/* Moon Card 3 (optional site C - Teal/Cyan) */}
         <div className="md-single-moon-card">
           <select
-            aria-label={lang === 'es' ? 'Seleccionar Luna 3 (Sitio C)' : 'Select Moon 3 (Site C)'}
+            aria-label={
+              lang === 'es' ? 'Seleccionar sitio C (opcional)' : 'Select site C (optional)'
+            }
             value={siteC?.site.id ?? ''}
             onChange={(e) => onChangeSiteC(e.target.value ? e.target.value : null)}
             className="md-moon-card-select"
           >
-            <option value="">{lang === 'es' ? 'Luna 3' : 'Moon 3'}</option>
+            <option value="">{lang === 'es' ? 'Sitio C (opcional)' : 'Site C (optional)'}</option>
             {sites.map((s) => (
               <option key={s.id} value={s.id}>
                 {s.name}
@@ -1022,9 +992,7 @@ export function ThreeMoonsComparisonSection({
 
           <div className="md-single-moon-stage">
             {renderRealMoonSphere('moonGlowTeal', '#2DD4BF', statsC ? statsC.sunPct : null)}
-            <span className="md-single-moon-badge teal">
-              {statsC ? `${statsC.sunPct}%` : '—'}
-            </span>
+            <span className="md-single-moon-badge teal">{statsC ? `${statsC.sunPct}%` : '—'}</span>
           </div>
         </div>
       </div>
@@ -1036,6 +1004,15 @@ export function ThreeMoonsComparisonSection({
         <h3 className="md-metrics-compare-title">
           {lang === 'es' ? 'Comparación de métricas' : 'Metrics comparison'}
         </h3>
+        <p className="md-caption">
+          {delayDays === 0
+            ? lang === 'es'
+              ? 'Porcentajes de todo el periodo analizado (30 días).'
+              : 'Percentages over the whole analysed period (30 days).'
+            : lang === 'es'
+              ? `Porcentajes desde el día +${delayDays} hasta el fin del periodo, por el retraso elegido.`
+              : `Percentages from day +${delayDays} to the end of the period, because of the chosen delay.`}
+        </p>
         <div className="md-metrics-table-wrap">
           <table className="md-metrics-compare-table">
             <thead>
@@ -1067,7 +1044,11 @@ export function ThreeMoonsComparisonSection({
               </tr>
 
               <tr>
-                <td>{lang === 'es' ? 'Enlace con la Tierra' : 'Earth communication link'}</td>
+                <td>
+                  {lang === 'es'
+                    ? 'Tierra sobre el umbral de enlace'
+                    : 'Earth above the link threshold'}
+                </td>
                 <td>
                   <span className={statsA.earthLinkPct >= statsB.earthLinkPct ? 'md-win-pill' : ''}>
                     {statsA.earthLinkPct}%
@@ -1103,21 +1084,17 @@ export function ThreeMoonsComparisonSection({
               </tr>
 
               <tr>
-                <td>{lang === 'es' ? 'Luz continua' : 'Continuous light'}</td>
+                <td>{lang === 'es' ? 'Luz continua más larga' : 'Longest continuous light'}</td>
                 <td>
                   <span
-                    className={
-                      statsA.contLightHours >= statsB.contLightHours ? 'md-win-pill' : ''
-                    }
+                    className={statsA.contLightHours >= statsB.contLightHours ? 'md-win-pill' : ''}
                   >
                     {formatDayHour(statsA.contLightHours)}
                   </span>
                 </td>
                 <td>
                   <span
-                    className={
-                      statsB.contLightHours > statsA.contLightHours ? 'md-win-pill' : ''
-                    }
+                    className={statsB.contLightHours > statsA.contLightHours ? 'md-win-pill' : ''}
                   >
                     {formatDayHour(statsB.contLightHours)}
                   </span>
@@ -1147,9 +1124,7 @@ export function ThreeMoonsComparisonSection({
 
         <div className="md-dual-bars">
           <div className="md-dual-bar-row">
-            <span className="md-dual-bar-label">
-              {lang === 'es' ? 'Luz solar' : 'Sunlight'}
-            </span>
+            <span className="md-dual-bar-label">{lang === 'es' ? 'Luz solar' : 'Sunlight'}</span>
             <div className="md-dual-bar-track">
               <div
                 className="md-dual-bar-fill purple"
@@ -1174,7 +1149,7 @@ export function ThreeMoonsComparisonSection({
 
           <div className="md-dual-bar-row">
             <span className="md-dual-bar-label teal-label">
-              {siteC ? shortSiteLabel(siteC.site.name) : lang === 'es' ? 'Luna 3' : 'Moon 3'}
+              {siteC ? shortSiteLabel(siteC.site.name) : lang === 'es' ? 'Sitio C' : 'Site C'}
             </span>
             <div className="md-dual-bar-track teal-track">
               {statsC && (
@@ -1184,15 +1159,11 @@ export function ThreeMoonsComparisonSection({
                 />
               )}
             </div>
-            <span className="md-dual-bar-val teal-label">
-              {statsC ? `${statsC.sunPct}%` : '—'}
-            </span>
+            <span className="md-dual-bar-val teal-label">{statsC ? `${statsC.sunPct}%` : '—'}</span>
           </div>
 
           <div className="md-dual-bar-row">
-            <span className="md-dual-bar-label">
-              {lang === 'es' ? 'Retraso' : 'Delay'}
-            </span>
+            <span className="md-dual-bar-label">{lang === 'es' ? 'Retraso' : 'Delay'}</span>
             <div className="md-dual-bar-track subtle" />
             <span className="md-dual-bar-val">
               {delayDays >= 0
