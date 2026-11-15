@@ -1898,8 +1898,38 @@ body {
 }
 
 /* ============================================================================
-   SCREEN 4: COMPARADOR (Dual Moon Globes — zoom4_topright.pdf)
+   SCREEN 3: COMPARAR (3 Moons + Metrics Table + Dates Bars + Bottom Dashboard)
+   Exact match to Cambios a realizar.png
    ============================================================================ */
+.md-brand-accent {
+  color: var(--earth);
+  font-weight: 700;
+}
+
+.md-strip-cell.sync-cell {
+  justify-content: center;
+  align-items: center;
+}
+
+.md-sync-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  color: var(--text-secondary);
+}
+
+.md-sync-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: var(--viable);
+  box-shadow: 0 0 10px rgba(54, 217, 138, 0.75);
+  display: inline-block;
+}
+
 .md-delay-stepper {
   display: inline-flex;
   align-items: center;
@@ -1916,11 +1946,190 @@ body {
   cursor: pointer;
 }
 
-.md-dual-moon-card {
-  background: radial-gradient(circle at 50% 0%, rgba(59, 140, 255, 0.12), rgba(24, 27, 34, 0.96) 70%);
-  border: 1px solid rgba(140, 187, 255, 0.18);
-  border-radius: 14px;
-  padding: 22px 26px;
+.md-compare-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+}
+
+/* 1. Three Separate Rounded Moon Cards */
+.md-three-moons-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 28px;
+  max-width: 1040px;
+  width: 100%;
+  margin: 8px auto 0;
+}
+
+.md-single-moon-card {
+  background: linear-gradient(180deg, #131c2e 0%, #0f1726 100%);
+  border: 1px solid rgba(140, 187, 255, 0.12);
+  border-radius: 22px;
+  padding: 20px 18px 24px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.42);
+}
+
+.md-moon-card-select {
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  color: #e5e7eb;
+  font-family: var(--font-body);
+  font-size: 13.5px;
+  font-weight: 500;
+  text-align: center;
+  padding: 4px 10px;
+  cursor: pointer;
+  max-width: 100%;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+.md-moon-card-select:hover,
+.md-moon-card-select:focus {
+  outline: none;
+  border-color: rgba(140, 187, 255, 0.28);
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.md-moon-card-select option {
+  background: #131c2e;
+  color: #ffffff;
+}
+
+.md-single-moon-stage {
+  position: relative;
+  width: 210px;
+  height: 210px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.md-single-moon-svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.md-single-moon-badge {
+  position: absolute;
+  right: 26px;
+  bottom: 24px;
+  padding: 5px 12px;
+  border-radius: 9px;
+  font-family: var(--font-display);
+  font-size: 12.5px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.45);
+}
+
+.md-single-moon-badge.purple {
+  background: #8b5cf6;
+  color: #ffffff;
+}
+
+.md-single-moon-badge.amber {
+  background: #f59e0b;
+  color: #161209;
+}
+
+.md-single-moon-badge.teal {
+  background: #2dd4bf;
+  color: #06221e;
+}
+
+/* 2. "Comparación de métricas" Table Card */
+.md-metrics-compare-card {
+  max-width: 1000px;
+  width: 100%;
+  margin: 0 auto;
+  background: #141922;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 16px;
+  padding: 22px 28px;
+  box-shadow: 0 16px 36px rgba(0, 0, 0, 0.35);
+}
+
+.md-metrics-compare-title {
+  font-family: var(--font-display);
+  font-size: 16px;
+  font-weight: 600;
+  color: #ffffff;
+  margin: 0 0 14px;
+}
+
+.md-metrics-table-wrap {
+  width: 100%;
+  overflow-x: auto;
+}
+
+.md-metrics-compare-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.md-metrics-compare-table th {
+  text-align: left;
+  padding: 8px 12px 12px 0;
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  letter-spacing: 0.08em;
+  color: var(--text-muted);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+}
+
+.md-metrics-compare-table td {
+  padding: 13px 12px 13px 0;
+  color: var(--text-secondary);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  font-family: var(--font-display);
+}
+
+.md-metrics-compare-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.md-metrics-compare-table td:first-child {
+  font-family: var(--font-body);
+  color: var(--text-secondary);
+}
+
+.md-win-pill {
+  display: inline-block;
+  padding: 3px 9px;
+  border-radius: 6px;
+  background: rgba(54, 217, 138, 0.16);
+  color: #36d98a;
+  font-weight: 700;
+}
+
+.md-delta-pos {
+  color: #36d98a !important;
+  font-weight: 600;
+}
+
+.md-delta-neg {
+  color: #f59e0b !important;
+  font-weight: 600;
+}
+
+/* 3. "Comparar fechas" Horizontal Bars Card */
+.md-compare-dates-card {
+  background: radial-gradient(
+    circle at 50% 0%,
+    rgba(116, 89, 255, 0.16) 0%,
+    rgba(13, 19, 31, 0.98) 68%
+  );
+  border: 1px solid rgba(140, 187, 255, 0.16);
+  border-radius: 18px;
+  padding: 24px 30px;
   display: flex;
   flex-direction: column;
   gap: 20px;
@@ -1937,89 +2146,41 @@ body {
   align-items: center;
   gap: 8px;
   font-size: 15px;
-}
-
-.md-dual-moon-globes {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 24px;
-  padding: 10px 0;
-  border-bottom: 1px solid var(--line);
-}
-
-.md-moon-column {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 8px;
-  border-right: 1px solid var(--line);
-}
-
-.md-moon-column:last-child {
-  border-right: none;
-}
-
-.md-moon-column-name {
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--text-primary);
-}
-
-.md-moon-sphere-wrap {
-  position: relative;
-  width: 170px;
-  height: 170px;
-}
-
-.md-moon-sphere-svg {
-  width: 100%;
-  height: 100%;
-}
-
-.md-moon-score-pill {
-  position: absolute;
-  right: 14px;
-  bottom: 14px;
-  padding: 4px 10px;
-  border-radius: 8px;
-  font-family: var(--font-display);
-  font-size: 13px;
-  font-weight: 700;
-}
-
-.md-moon-score-pill.purple {
-  background: #8b5cf6;
   color: #ffffff;
-}
-
-.md-moon-score-pill.amber {
-  background: var(--sun);
-  color: #16130b;
 }
 
 .md-dual-bars {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 14px;
 }
 
 .md-dual-bar-row {
   display: grid;
-  grid-template-columns: 110px 1fr 64px;
+  grid-template-columns: 140px 1fr 76px;
   align-items: center;
-  gap: 14px;
+  gap: 18px;
 }
 
 .md-dual-bar-label {
-  font-size: 12px;
+  font-size: 12.5px;
   color: var(--text-secondary);
 }
 
+.md-dual-bar-label.teal-label,
+.md-dual-bar-val.teal-label {
+  color: #2dd4bf;
+}
+
 .md-dual-bar-track {
-  height: 7px;
+  height: 8px;
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.08);
   overflow: hidden;
+}
+
+.md-dual-bar-track.teal-track {
+  background: rgba(45, 212, 191, 0.18);
 }
 
 .md-dual-bar-track.subtle {
@@ -2033,11 +2194,15 @@ body {
 }
 
 .md-dual-bar-fill.purple {
-  background: linear-gradient(90deg, #6366f1, #a855f7);
+  background: linear-gradient(90deg, #7c3aed, #a855f7);
 }
 
 .md-dual-bar-fill.amber {
-  background: linear-gradient(90deg, #f59e0b, #ffd98a);
+  background: linear-gradient(90deg, #f59e0b, #fbbf24);
+}
+
+.md-dual-bar-fill.teal {
+  background: linear-gradient(90deg, #14b8a6, #2dd4bf);
 }
 
 .md-dual-bar-fill.blue {
@@ -2051,38 +2216,56 @@ body {
   color: var(--text-primary);
 }
 
-.md-aws-four-grid {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 12px;
-}
-
-.md-aws-site-box {
-  background: var(--bg-surface);
-  border: 1px solid var(--line);
-  border-radius: 10px;
-  padding: 14px;
+/* 4. Bottom Interactive Dashboard inside Comparar (with A | B | C site switcher) */
+.md-compare-bottom-dashboard {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 16px;
+  padding: 18px;
+  border-radius: 16px;
+  background: rgba(13, 18, 28, 0.85);
+  border: 1px solid rgba(140, 187, 255, 0.1);
+}
+
+.md-abc-switcher {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 8px;
+  overflow: hidden;
+  border: 1px solid rgba(140, 187, 255, 0.24);
+  background: #141b28;
+}
+
+.md-abc-btn {
+  padding: 7px 13px;
+  border: none;
+  border-right: 1px solid rgba(255, 255, 255, 0.08);
+  background: transparent;
+  color: var(--text-secondary);
+  font-family: var(--font-body);
+  font-size: 11.5px;
+  font-weight: 600;
   cursor: pointer;
+  transition: all 0.15s ease;
 }
 
-.md-aws-site-box.selected,
-.md-aws-site-box:hover {
-  border-color: var(--earth);
+.md-abc-btn:last-child {
+  border-right: none;
 }
 
-.md-aws-site-top {
-  display: flex;
-  justify-content: space-between;
-  font-size: 12.5px;
+.md-abc-btn:hover {
+  color: #ffffff;
+  background: rgba(255, 255, 255, 0.06);
 }
 
-.md-aws-site-row {
-  display: flex;
-  justify-content: space-between;
-  font-size: 12px;
+.md-abc-btn.active {
+  background: #2563eb;
+  color: #ffffff;
+}
+
+.md-abc-btn.active-light {
+  background: #f3f4f6;
+  color: #111827;
 }
 
 /* ============================================================================
@@ -2931,4 +3114,22 @@ body {
 
 .trajectory-result.escape {
   border-left-color: var(--sun);
+}
+
+@media (max-width: 1024px) {
+  .md-three-moons-grid {
+    grid-template-columns: 1fr;
+    max-width: 400px;
+  }
+
+  .md-scenario-strip {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .md-navigator-middle-grid,
+  .md-horizon-sky-grid,
+  .md-mission-control-grid,
+  .md-catalog-grid {
+    grid-template-columns: 1fr;
+  }
 }

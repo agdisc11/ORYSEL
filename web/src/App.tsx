@@ -13,9 +13,9 @@ import {
 } from './ephemeris/awsApi.ts'
 import { ElevationChart } from './components/ElevationChart.tsx'
 import {
-  DualMoonComparisonCard,
   LocalHorizonAndSkyRow,
   OrbitalPositionCenital,
+  ThreeMoonsComparisonSection,
   TwentyFourHourOutlook,
 } from './components/LunarVisualWidgets.tsx'
 import { OnboardingModal, type UserSession } from './components/OnboardingModal.tsx'
@@ -27,6 +27,7 @@ type MainTab = 'catalog' | 'sheet' | 'navigator' | 'compare' | 'about'
 type Lang = 'es' | 'en'
 type RegionFilter = 'all' | 'south-polar' | 'equatorial'
 type VerdictFilter = 'all' | 'viable' | 'marginal' | 'not-viable'
+type CompareSlot = 'A' | 'B' | 'C'
 
 interface LoadedSiteData {
   meta: Site
@@ -38,7 +39,7 @@ function formatDurationHours(hours: number): string {
   const days = Math.floor(hours / 24)
   const remH = Math.round(hours % 24)
   if (days === 0) return `${remH} h`
-  return `${days} d ${remH} h`
+  return `${days}d ${String(remH).padStart(2, '0')}h`
 }
 
 function getVerdictCategory(
@@ -52,9 +53,10 @@ function getVerdictCategory(
 export function App() {
   const [siteId, setSiteId] = useState<string>(SITES[0].id)
   const [compareIds, setCompareIds] = useState<string[]>(['im2', 'reiner-gamma'])
-  const [activeTab, setActiveTab] = useState<MainTab>('catalog')
+  const [compareSlot, setCompareSlot] = useState<CompareSlot>('A')
+  const [activeTab, setActiveTab] = useState<MainTab>('compare')
   const [lang, setLang] = useState<Lang>('es')
-  const [explainOpen, setExplainOpen] = useState<boolean>(true)
+  const [explainOpen, setExplainOpen] = useState<boolean>(false)
   const [profileMode, setProfileMode] = useState<UserProfileMode>('executive')
 
   // Catalog filters & Custom coordinates
@@ -78,7 +80,6 @@ export function App() {
   // Modals & sub-tabs
   const [showOnboarding, setShowOnboarding] = useState<boolean>(false)
   const [showArchModal, setShowArchModal] = useState<boolean>(false)
-  const [showSpaceEngineValidation, setShowSpaceEngineValidation] = useState<boolean>(false)
   const [sheetBottomTab, setSheetBottomTab] = useState<'aws' | 'events' | 'spaceengine'>('aws')
 
   const [session, setSession] = useState<UserSession>({
@@ -214,8 +215,6 @@ export function App() {
     return () => window.clearInterval(interval)
   }, [isPlaying, report])
 
-  const activeSiteMeta = useMemo(() => SITES.find((s) => s.id === siteId) ?? SITES[0], [siteId])
-
   const kpi = useMemo(() => {
     if (!report) return null
     return (
@@ -233,39 +232,6 @@ export function App() {
     if (!report || report.series.length === 0) return null
     return report.series[selectedSampleIdx] ?? report.series[0]
   }, [report, selectedSampleIdx])
-
-  // Sensitivity simulation ("¿Qué pasaría si retrasamos el alunizaje +N días?")
-  const sensitivityStats = useMemo(() => {
-    if (!report || report.series.length === 0) {
-      return { sunPct: 59, earthPct: 73, shiftedSample: null, bestDelayDays: 4 }
-    }
-    const offsetHours = Math.min(report.series.length - 1, Math.max(0, delayDays * 24))
-    const slice = report.series.slice(offsetHours)
-    const count = Math.max(1, slice.length)
-    const sunVis = (slice.filter((s) => s.sun_el > 0).length / count) * 100
-    const earthVis = (slice.filter((s) => s.earth_el > 0).length / count) * 100
-    const shiftedSample = report.series[offsetHours] ?? report.series[0]
-
-    // Find day offset (0..25) that maximizes Earth + Sun elevation
-    let bestDay = 0
-    let bestScore = -999
-    for (let d = 0; d <= 25; d++) {
-      const idx = Math.min(report.series.length - 1, d * 24)
-      const s = report.series[idx]
-      const combined = s.earth_el * 1.4 + s.sun_el
-      if (combined > bestScore) {
-        bestScore = combined
-        bestDay = d
-      }
-    }
-
-    return {
-      sunPct: Math.round(sunVis * 10) / 10,
-      earthPct: Math.round(earthVis * 10) / 10,
-      shiftedSample,
-      bestDelayDays: bestDay,
-    }
-  }, [report, delayDays])
 
   // Filtered sites for Catalog
   const filteredCatalogSites = useMemo(() => {
@@ -324,12 +290,13 @@ export function App() {
       }
     }
     setSiteId(closest.id)
+    updateCompareSiteA(closest.id)
     setCustomStatusMsg(
       lang === 'es'
         ? `Efemérides SPICE DE440 calculadas para (${parsedLat.toFixed(2)}°, ${parsedLon.toFixed(2)}°) · Referencia más cercana: ${closest.name}`
         : `SPICE DE440 ephemerides computed for (${parsedLat.toFixed(2)}°, ${parsedLon.toFixed(2)}°) · Nearest reference: ${closest.name}`,
     )
-    setActiveTab('navigator')
+    setActiveTab('compare')
   }
 
   // Next Sun and Earth horizon crossing events for "Sunset in" / "Earthrise in" cards
@@ -388,11 +355,82 @@ export function App() {
     }
   }, [report, activeSample, lang])
 
-  // Compare view left & right sites
+  // Compare view Site A, Site B, and optional Site C (Luna 3)
   const compareLeftId = compareIds[0] ?? 'im2'
   const compareRightId = compareIds[1] ?? 'reiner-gamma'
+  const compareThirdId = compareIds[2] ?? null
   const compareLeftData = allSitesData[compareLeftId]?.report ?? report
   const compareRightData = allSitesData[compareRightId]?.report ?? report
+  const compareThirdData = compareThirdId ? (allSitesData[compareThirdId]?.report ?? null) : null
+
+  const updateCompareSiteA = (newId: string) => {
+    setCompareIds((prev) => [newId, prev[1] ?? 'reiner-gamma', ...(prev[2] ? [prev[2]] : [])])
+  }
+  const updateCompareSiteB = (newId: string) => {
+    setCompareIds((prev) => [prev[0] ?? 'im2', newId, ...(prev[2] ? [prev[2]] : [])])
+  }
+  const updateCompareSiteC = (newId: string | null) => {
+    setCompareIds((prev) =>
+      newId ? [prev[0] ?? 'im2', prev[1] ?? 'reiner-gamma', newId] : [prev[0] ?? 'im2', prev[1] ?? 'reiner-gamma'],
+    )
+  }
+
+  // Focused site in the bottom dashboard of "Comparar" (driven by the A | B | C switcher)
+  const focusedCompareReport = useMemo(() => {
+    if (compareSlot === 'B') return compareRightData ?? compareLeftData
+    if (compareSlot === 'C') return compareThirdData ?? compareLeftData
+    return compareLeftData
+  }, [compareSlot, compareLeftData, compareRightData, compareThirdData])
+
+  const focusedCompareStats = useMemo(() => {
+    const rep = focusedCompareReport
+    if (!rep || rep.series.length === 0) {
+      return {
+        scorePct: 86,
+        verdict: 'GO' as const,
+        vetoReason: null as string | null,
+        blindSpotDetected: false,
+        sunPct: 68,
+        earthPct: 72,
+        shiftedSample: activeSample,
+        nextSunDelta: '12d 05h',
+        contLightDelta: '3d 14h',
+      }
+    }
+    const offsetHours = Math.min(rep.series.length - 1, Math.max(0, delayDays * 24))
+    const slice = rep.series.slice(offsetHours)
+    const count = Math.max(1, slice.length)
+    const sunPct = Math.round((slice.filter((s) => s.sun_el > 0).length / count) * 100)
+    const earthPct = Math.round((slice.filter((s) => s.earth_el > 0).length / count) * 100)
+    const shiftedSample = rep.series[offsetHours] ?? rep.series[0]
+
+    const nowMs = Date.parse(shiftedSample.t)
+    const futureSun = rep.events.find((ev) => ev.body === 'sun' && Date.parse(ev.t) > nowMs)
+    const sunHours = futureSun
+      ? Math.max(1, (Date.parse(futureSun.t) - nowMs) / 3_600_000)
+      : rep.metrics.longest_sun_window_hours || 293
+
+    const repKpi =
+      rep.viability ??
+      computeViabilityKPI({
+        site: rep.site,
+        series: rep.series,
+        metrics: rep.metrics,
+        horizon: rep.horizon,
+      })
+
+    return {
+      scorePct: repKpi.scorePct,
+      verdict: repKpi.verdict,
+      vetoReason: repKpi.vetoReason ?? null,
+      blindSpotDetected: repKpi.blindSpotDetected,
+      sunPct,
+      earthPct,
+      shiftedSample,
+      nextSunDelta: formatDurationHours(sunHours),
+      contLightDelta: formatDurationHours(rep.metrics.longest_sun_window_hours),
+    }
+  }, [focusedCompareReport, delayDays, activeSample])
 
   return (
     <div className="md-app">
@@ -420,7 +458,7 @@ export function App() {
       )}
 
       {/* =====================================================================
-          10 / TOP BAR (99.9% inspired by Diseños.pdf: MoonDial + 5 Nav Tabs + EN|ES + Explain + Avatar)
+          10 / TOP BAR (Exact match to Cambios a realizar.png — NO Model Status)
          ===================================================================== */}
       <header className="md-topbar">
         <div className="md-topbar-left">
@@ -434,9 +472,8 @@ export function App() {
               ☾
             </span>
             <span className="md-brand-text">
-              <strong>MOON</strong> DIAL
+              <strong>MOON</strong> <span className="md-brand-accent">DIAL</span>
             </span>
-            <span className="md-brand-sub">ORYSEL</span>
           </button>
         </div>
 
@@ -457,13 +494,6 @@ export function App() {
           </button>
           <button
             type="button"
-            className={activeTab === 'navigator' ? 'md-nav-link active' : 'md-nav-link'}
-            onClick={() => setActiveTab('navigator')}
-          >
-            {lang === 'es' ? 'Navegador' : 'Navigator'}
-          </button>
-          <button
-            type="button"
             className={activeTab === 'compare' ? 'md-nav-link active' : 'md-nav-link'}
             onClick={() => setActiveTab('compare')}
           >
@@ -479,23 +509,6 @@ export function App() {
         </nav>
 
         <div className="md-topbar-right">
-          {/* Live AWS EC2 & FPS Telemetry Pill */}
-          <button
-            type="button"
-            className={`md-aws-status-pill ${awsTelemetry.online ? 'online' : 'fallback'}`}
-            onClick={() => setShowArchModal(true)}
-            title="Ver Arquitectura en 3 Capas, Ping AWS EC2 y Swagger API"
-          >
-            <span className="md-status-dot" />
-            <span>
-              {awsTelemetry.online
-                ? `AWS ${awsTelemetry.pingRttMs}ms · DB ${awsTelemetry.dbQueryMs}ms`
-                : 'MODO ACTIVO · SPICE'}
-            </span>
-            <span className="md-fps-divider">|</span>
-            <span>{clientFps} FPS</span>
-          </button>
-
           {/* 03 / LANGUAGE TOGGLE · PILL / EN / ES */}
           <div className="md-lang-pill" role="group" aria-label="Idioma">
             <button
@@ -520,17 +533,19 @@ export function App() {
             className={explainOpen ? 'md-explain-btn active' : 'md-explain-btn'}
             onClick={() => setExplainOpen((v) => !v)}
           >
-            <span>?</span> {lang === 'es' ? 'Explicar' : 'Explain'}
+            <span>?</span> {lang === 'es' ? 'Modo' : 'Mode'}
           </button>
 
-          {/* User Avatar button */}
+          {/* User Avatar button (matches Cambios a realizar.png) */}
           <button
             type="button"
             className="md-avatar-btn"
             onClick={() => setShowOnboarding(true)}
             title={`Perfil: ${session.name} (${session.organization})`}
           >
-            {session.name.slice(0, 2).toUpperCase()}
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" aria-hidden="true">
+              <path d="M12 12c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zm0 2c-3.33 0-10 1.67-10 5v3h20v-3c0-3.33-6.67-5-10-5z" />
+            </svg>
           </button>
         </div>
       </header>
@@ -1429,308 +1444,14 @@ export function App() {
               </div>
             )}
           </section>
+
+          {/* Local Horizon 360° & Sky Visibility Polar Radar */}
+          <LocalHorizonAndSkyRow report={report} sample={activeSample} />
         </main>
       )}
 
       {/* =====================================================================
-          SCREEN 3: NAVEGADOR ("Navegador de alunizaje" — zoom6_navegador_moon.pdf & zoom8_navigator_sky.pdf)
-         ===================================================================== */}
-      {activeTab === 'navigator' && report && kpi && activeSample && (
-        <main className="md-main">
-          <header className="md-page-header">
-            <div>
-              <p className="md-eyebrow">POLO SUR LUNAR · ESCENARIO 01</p>
-              <h1 className="md-display-title">
-                {lang === 'es' ? 'Navegador de alunizaje' : 'Landing site navigator'}
-              </h1>
-              <p className="md-subtitle">
-                {lang === 'es'
-                  ? 'Evalúa la luz solar, el perfil topográfico local y la visibilidad directa a la Tierra para una ventana de aterrizaje.'
-                  : 'Evaluate terrain, illumination, and direct-to-Earth visibility for a selected place and time.'}
-              </p>
-            </div>
-            <div className="md-page-header-right">
-              <span className="md-timestamp-meta">
-                ⏱ DATOS DE MUESTRA · {activeSample.t.slice(0, 16).replace('T', ' ')} UTC
-              </span>
-            </div>
-          </header>
-
-          {/* 4-Column Scenario Control Strip (from zoom6_navegador_moon.pdf & zoom8_navigator_sky.pdf) */}
-          <section className="md-scenario-strip">
-            <div className="md-strip-cell">
-              <span className="md-label">
-                {lang === 'es' ? 'SITIO DE ALUNIZAJE' : 'LANDING SITE'}
-              </span>
-              <select
-                value={siteId}
-                onChange={(e) => setSiteId(e.target.value)}
-                className="md-strip-select"
-              >
-                {SITES.map((s) => (
-                  <option key={s.id} value={s.id}>
-                    {s.name}
-                  </option>
-                ))}
-              </select>
-              <span className="md-caption">
-                {Math.abs(activeSiteMeta.lat).toFixed(2)}°
-                {activeSiteMeta.lat >= 0 ? 'N' : 'S'} ·{' '}
-                {Math.abs(activeSiteMeta.lon).toFixed(2)}°
-                {activeSiteMeta.lon >= 0 ? 'E' : 'W'}
-              </span>
-            </div>
-
-            <div className="md-strip-cell">
-              <span className="md-label">
-                {lang === 'es' ? 'VENTANA ANALIZADA' : 'UTC DATE & TIME'}
-              </span>
-              <strong className="md-strip-val">
-                {activeSample.t.slice(0, 10)} · {activeSample.t.slice(11, 16)} UTC
-              </strong>
-              <span className="md-caption">Marco MOON_ME (LT+S) · J2000</span>
-            </div>
-
-            <div className="md-strip-cell">
-              <span className="md-label">
-                {lang === 'es' ? 'ESTADO DEL MODELO' : 'MODEL STATUS'}
-              </span>
-              <strong className="md-strip-val viable-text">
-                ● {awsTelemetry.online ? 'Sincronizado AWS EC2' : 'Sincronizado SPICE'}
-              </strong>
-              <span className="md-caption">
-                {awsTelemetry.online
-                  ? `PostgreSQL ${awsTelemetry.dbQueryMs}ms · 5,768 filas`
-                  : 'Kernel local DE440 verificado'}
-              </span>
-            </div>
-
-            <div className="md-strip-cell cta">
-              <button
-                type="button"
-                className="md-strip-compare-btn"
-                onClick={() => setActiveTab('compare')}
-              >
-                ⇄ {lang === 'es' ? 'Comparar escenario >' : 'Compare scenario >'}
-              </button>
-            </div>
-          </section>
-
-          {/* Full-Width Viability Verdict Card with Circular Gauge (from zoom6_navegador_moon.pdf) */}
-          <section
-            className={`md-verdict-hero-banner ${
-              kpi.verdict === 'GO' ? 'viable' : kpi.verdict === 'CAUTION' ? 'marginal' : 'not-viable'
-            }`}
-          >
-            <div className="md-verdict-hero-left">
-              <div className="md-circular-gauge">
-                <svg viewBox="0 0 68 68">
-                  <circle
-                    cx="34"
-                    cy="34"
-                    r="28"
-                    fill="none"
-                    stroke="rgba(255,255,255,0.12)"
-                    strokeWidth="4.5"
-                  />
-                  <circle
-                    cx="34"
-                    cy="34"
-                    r="28"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="4.5"
-                    strokeDasharray={`${(kpi.scorePct / 100) * 176} 176`}
-                    transform="rotate(-90 34 34)"
-                    strokeLinecap="round"
-                  />
-                </svg>
-                <strong>{kpi.scorePct}</strong>
-              </div>
-
-              <div>
-                <span className="md-label">VEREDICTO DE VIABILIDAD</span>
-                <h2 className="md-verdict-hero-title">
-                  ●{' '}
-                  {kpi.verdict === 'GO'
-                    ? 'Viable'
-                    : kpi.verdict === 'CAUTION'
-                      ? 'Condicional'
-                      : 'No Viable (Punto Ciego)'}
-                </h2>
-                <p className="md-caption">
-                  {kpi.vetoReason ??
-                    'Iluminación solar estable y enlace directo con la Tierra y con el orbitador dentro de la ventana operativa.'}
-                </p>
-              </div>
-            </div>
-
-            <div className="md-verdict-hero-checks">
-              <span>✓ {lang === 'es' ? 'Amanecer' : 'Sunrise'}</span>
-              <span>
-                {kpi.blindSpotDetected ? '× Sin línea a Tierra' : '✓ Tierra a la vista'}
-              </span>
-              <span>
-                ✓ {Math.round(report.metrics.longest_sun_window_hours / 24)}{' '}
-                {lang === 'es' ? 'días de luz' : 'days of light'}
-              </span>
-              <button
-                type="button"
-                className="md-btn secondary"
-                onClick={() => setShowSpaceEngineValidation((v) => !v)}
-              >
-                {showSpaceEngineValidation ? 'Ocultar SpaceEngine 3D' : 'Validación SpaceEngine 3D'}
-              </button>
-            </div>
-          </section>
-
-          {showSpaceEngineValidation && (
-            <section className="md-panel md-spaceengine-box">
-              <div className="md-se-grid">
-                <div>
-                  <span>Coordenadas SpaceEngine</span>
-                  <strong className="mono">
-                    Lat {report.site.lat.toFixed(4)}° · Lon {report.site.lon.toFixed(4)}°
-                  </strong>
-                </div>
-                <div>
-                  <span>Época UTC</span>
-                  <strong className="mono">{activeSample.t}</strong>
-                </div>
-                <div>
-                  <span>Elevación Solar / Terrestre</span>
-                  <strong className="mono">
-                    Sol {activeSample.sun_el.toFixed(2)}° · Tierra{' '}
-                    {activeSample.earth_el.toFixed(2)}°
-                  </strong>
-                </div>
-              </div>
-            </section>
-          )}
-
-          {/* Orbital Position Cenital + 3 KPI Cards + "¿Qué pasaría si...?" Sensitivity Simulator (from zoom6_navegador_moon.pdf) */}
-          <section className="md-navigator-middle-grid">
-            <OrbitalPositionCenital
-              sample={sensitivityStats.shiftedSample ?? activeSample}
-              siteName={report.site.name}
-            />
-
-            <div className="md-navigator-right-stack">
-              {/* 3 KPI Mini-Cards */}
-              <div className="md-three-kpi-cards">
-                <div className="md-panel md-mini-kpi">
-                  <span className="md-mini-kpi-icon">☀️</span>
-                  <div>
-                    <span className="md-label">PRÓXIMO CAMBIO</span>
-                    <strong className="md-mini-kpi-val">{nextCrossings.sunDelta}</strong>
-                    <span className="md-caption">Ventana solar</span>
-                  </div>
-                </div>
-
-                <div className="md-panel md-mini-kpi">
-                  <span className="md-mini-kpi-icon">🕒</span>
-                  <div>
-                    <span className="md-label">LUZ CONTINUA</span>
-                    <strong className="md-mini-kpi-val">
-                      {formatDurationHours(report.metrics.longest_sun_window_hours)}
-                    </strong>
-                    <span className="md-caption">Duración estimada</span>
-                  </div>
-                </div>
-
-                <div className="md-panel md-mini-kpi">
-                  <span className="md-mini-kpi-icon">🌍</span>
-                  <div>
-                    <span className="md-label">TIERRA VISIBLE</span>
-                    <strong className="md-mini-kpi-val">{sensitivityStats.earthPct}%</strong>
-                    <span className="md-caption">Línea de visión</span>
-                  </div>
-                </div>
-              </div>
-
-              {/* ANÁLISIS DE SENSIBILIDAD · ¿Qué pasaría si...? */}
-              <div className="md-panel md-sensitivity-card">
-                <div className="md-panel-header-row">
-                  <div>
-                    <span className="md-eyebrow">ANÁLISIS DE SENSIBILIDAD</span>
-                    <h3 className="md-h2">
-                      {lang === 'es' ? '¿Qué pasaría si...?' : 'What if we delay?'}
-                    </h3>
-                  </div>
-                  <span className="md-tag-pill">RETRASO +{delayDays} DÍAS</span>
-                </div>
-
-                <div className="md-sensitivity-slider-block">
-                  <div className="md-sensitivity-slider-labels">
-                    <span>{lang === 'es' ? 'Retrasar el alunizaje' : 'Delay landing'}</span>
-                    <strong>{delayDays} días</strong>
-                  </div>
-                  <input
-                    type="range"
-                    min={0}
-                    max={28}
-                    value={delayDays}
-                    onChange={(e) => setDelayDays(Number(e.target.value))}
-                    className="md-range-slider"
-                  />
-                  <div className="md-time-slider-ticks">
-                    <span>0</span>
-                    <span>14</span>
-                    <span>28 días</span>
-                  </div>
-                </div>
-
-                <div className="md-sensitivity-bars">
-                  <div className="md-sens-bar-row">
-                    <div className="md-sens-bar-meta">
-                      <span>☀️ Iluminación solar</span>
-                      <small>{sensitivityStats.sunPct}% disponible</small>
-                    </div>
-                    <div className="md-dual-bar-track">
-                      <div
-                        className="md-dual-bar-fill amber"
-                        style={{ width: `${Math.min(100, sensitivityStats.sunPct)}%` }}
-                      />
-                    </div>
-                  </div>
-
-                  <div className="md-sens-bar-row">
-                    <div className="md-sens-bar-meta">
-                      <span>🌍 Enlace con la Tierra</span>
-                      <small>{sensitivityStats.earthPct}% de visibilidad</small>
-                    </div>
-                    <div className="md-dual-bar-track">
-                      <div
-                        className="md-dual-bar-fill blue"
-                        style={{ width: `${Math.min(100, sensitivityStats.earthPct)}%` }}
-                      />
-                    </div>
-                  </div>
-                </div>
-
-                <div className="md-sensitivity-footer">
-                  <button
-                    type="button"
-                    className="md-btn secondary"
-                    onClick={() => setDelayDays(sensitivityStats.bestDelayDays)}
-                  >
-                    📡 Optimizar enlace Tierra (+{sensitivityStats.bestDelayDays}d) &gt;
-                  </button>
-                </div>
-              </div>
-            </div>
-          </section>
-
-          {/* Local Horizon 360° & Sky Visibility Polar Radar (from zoom8_navigator_sky.pdf) */}
-          <LocalHorizonAndSkyRow
-            report={report}
-            sample={sensitivityStats.shiftedSample ?? activeSample}
-          />
-        </main>
-      )}
-
-      {/* =====================================================================
-          SCREEN 4: COMPARADOR ("Comparador de condiciones" — zoom4_topright.pdf)
+          SCREEN 3: COMPARAR ("Compare scenarios" — Exact match to Cambios a realizar.png)
          ===================================================================== */}
       {activeTab === 'compare' && (
         <main className="md-main">
@@ -1738,12 +1459,12 @@ export function App() {
             <div>
               <p className="md-eyebrow">POLO SUR LUNAR · ANÁLISIS DE ESCENARIO</p>
               <h1 className="md-display-title">
-                {lang === 'es' ? 'Comparador de condiciones' : 'Compare scenarios'}
+                {lang === 'es' ? 'Compare scenarios' : 'Compare scenarios'}
               </h1>
               <p className="md-subtitle">
                 {lang === 'es'
-                  ? 'Contrasta iluminación solar y enlace con la Tierra antes de ajustar la ventana de alunizaje.'
-                  : 'Sites over the same analysis window · Contrast solar illumination and Earth link.'}
+                  ? 'Sites over the same analysis window'
+                  : 'Sites over the same analysis window'}
               </p>
             </div>
             <div className="md-page-header-right">
@@ -1753,28 +1474,16 @@ export function App() {
             </div>
           </header>
 
-          {/* 4-Column Compare Strip (from zoom4_topright.pdf) */}
+          {/* 4-Column Compare Strip (Exact match to Cambios a realizar.png — NO Model Status) */}
           <section className="md-scenario-strip">
             <div className="md-strip-cell">
-              <span className="md-label">SITIO DE ALUNIZAJE A</span>
+              <span className="md-label">SITIO DE ALUNIZAJE</span>
               <select
                 value={compareLeftId}
-                onChange={(e) => setCompareIds([e.target.value, compareRightId])}
-                className="md-strip-select"
-              >
-                {SITES.map((s) => (
-                  <option key={s.id} value={s.id}>
-                    {s.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div className="md-strip-cell">
-              <span className="md-label">SITIO DE ALUNIZAJE B</span>
-              <select
-                value={compareRightId}
-                onChange={(e) => setCompareIds([compareLeftId, e.target.value])}
+                onChange={(e) => {
+                  updateCompareSiteA(e.target.value)
+                  setSiteId(e.target.value)
+                }}
                 className="md-strip-select"
               >
                 {SITES.map((s) => (
@@ -1795,7 +1504,8 @@ export function App() {
               <div className="md-delay-stepper">
                 <button
                   type="button"
-                  onClick={() => setDelayDays((d) => Math.max(-5, d - 1))}
+                  onClick={() => setDelayDays((d) => Math.max(0, d - 1))}
+                  aria-label="Reducir días de retraso"
                 >
                   −
                 </button>
@@ -1804,82 +1514,253 @@ export function App() {
                 </strong>
                 <button
                   type="button"
-                  onClick={() => setDelayDays((d) => Math.min(25, d + 1))}
+                  onClick={() => setDelayDays((d) => Math.min(28, d + 1))}
+                  aria-label="Aumentar días de retraso"
                 >
                   +
                 </button>
               </div>
-              <span className="md-caption viable-text">● SIMULACIÓN SINCRONIZADA</span>
+            </div>
+
+            <div className="md-strip-cell sync-cell">
+              <span className="md-sync-status">
+                <i className="md-sync-dot" /> SIMULACIÓN SINCRONIZADA
+              </span>
             </div>
           </section>
 
-          {/* Central Dual Moon Comparison Card (from zoom4_topright.pdf) */}
+          {/* 3 Separate Moon Cards + "Comparación de métricas" + "Comparar fechas" (Exact match to Cambios a realizar.png) */}
           {compareLeftData && compareRightData && (
-            <DualMoonComparisonCard
-              leftTitle={compareLeftData.site.name}
-              leftScore={compareLeftData.viability?.scorePct ?? 86}
-              leftSunPct={compareLeftData.metrics.sun_visible_pct}
-              leftEarthPct={compareLeftData.metrics.earth_visible_pct}
-              rightTitle={compareRightData.site.name}
-              rightScore={compareRightData.viability?.scorePct ?? 96}
-              rightSunPct={compareRightData.metrics.sun_visible_pct}
-              rightEarthPct={compareRightData.metrics.earth_visible_pct}
+            <ThreeMoonsComparisonSection
+              sites={SITES}
+              siteA={compareLeftData}
+              siteB={compareRightData}
+              siteC={compareThirdData}
+              onChangeSiteA={(id) => {
+                updateCompareSiteA(id)
+                setSiteId(id)
+              }}
+              onChangeSiteB={(id) => updateCompareSiteB(id)}
+              onChangeSiteC={(id) => updateCompareSiteC(id)}
               delayDays={delayDays}
             />
           )}
 
-          {/* AWS PostgreSQL 4-Site Comparative Matrix */}
-          <section className="md-panel">
-            <div className="md-panel-header-row">
-              <div>
-                <span className="md-eyebrow">
-                  BASE DE DATOS EN LA NUBE · AWS EC2 ({AWS_BASE_URL})
-                </span>
-                <h3 className="md-h2">
-                  Matriz Comparativa de los 4 Sitios Lunares (tabla{' '}
-                  <code>prueba.horizons_im2</code>)
-                </h3>
-              </div>
-              <span className="md-tag-pill">5,768 registros NASA/JPL Horizons</span>
-            </div>
+          {/* Bottom Interactive Dashboard (Verdict Banner + Posición orbital + 3 KPIs + ¿Qué pasaría si...? with A|B|C switcher) */}
+          {focusedCompareReport && focusedCompareStats.shiftedSample && (
+            <div className="md-compare-bottom-dashboard">
+              <section
+                className={`md-verdict-hero-banner ${
+                  focusedCompareStats.verdict === 'GO'
+                    ? 'viable'
+                    : focusedCompareStats.verdict === 'CAUTION'
+                      ? 'marginal'
+                      : 'not-viable'
+                }`}
+              >
+                <div className="md-verdict-hero-left">
+                  <div className="md-circular-gauge">
+                    <svg viewBox="0 0 68 68">
+                      <circle
+                        cx="34"
+                        cy="34"
+                        r="28"
+                        fill="none"
+                        stroke="rgba(255,255,255,0.12)"
+                        strokeWidth="4.5"
+                      />
+                      <circle
+                        cx="34"
+                        cy="34"
+                        r="28"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="4.5"
+                        strokeDasharray={`${(focusedCompareStats.scorePct / 100) * 176} 176`}
+                        transform="rotate(-90 34 34)"
+                        strokeLinecap="round"
+                      />
+                    </svg>
+                    <strong>{focusedCompareStats.scorePct}</strong>
+                  </div>
 
-            <div className="md-aws-four-grid">
-              {SITES.map((s) => {
-                const solRow = awsTelemetry.siteMetrics.find(
-                  (m) => m.sitio_id === s.id && m.cuerpo === 'sol',
-                )
-                const tierraRow = awsTelemetry.siteMetrics.find(
-                  (m) => m.sitio_id === s.id && m.cuerpo === 'tierra',
-                )
-                return (
-                  <div
-                    key={s.id}
-                    className={`md-aws-site-box ${s.id === siteId ? 'selected' : ''}`}
-                    onClick={() => handleOpenSite(s.id, 'sheet')}
-                  >
-                    <div className="md-aws-site-top">
-                      <strong>{s.name}</strong>
-                      <span className="mono">{s.id}</span>
+                  <div>
+                    <span className="md-label">VEREDICTO DE VIABILIDAD</span>
+                    <h2 className="md-verdict-hero-title">
+                      ●{' '}
+                      {focusedCompareStats.verdict === 'GO'
+                        ? 'Viable'
+                        : focusedCompareStats.verdict === 'CAUTION'
+                          ? 'Condicional'
+                          : 'No Viable'}
+                    </h2>
+                    <p className="md-caption">
+                      {focusedCompareStats.vetoReason ??
+                        'Iluminación estable y enlace directo a la Tierra dentro de la ventana operativa.'}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="md-verdict-hero-checks">
+                  <span>✓ {lang === 'es' ? 'Amanecer' : 'Sunrise'}</span>
+                  <span>
+                    {focusedCompareStats.blindSpotDetected
+                      ? '× Sin línea a Tierra'
+                      : '✓ Tierra a la vista'}
+                  </span>
+                  <span>
+                    ✓{' '}
+                    {Math.max(
+                      1,
+                      Math.round(focusedCompareReport.metrics.longest_sun_window_hours / 24),
+                    )}{' '}
+                    {lang === 'es' ? 'días de luz' : 'days of light'}
+                  </span>
+                </div>
+              </section>
+
+              <section className="md-navigator-middle-grid">
+                <OrbitalPositionCenital
+                  sample={focusedCompareStats.shiftedSample}
+                  siteName={focusedCompareReport.site.name}
+                />
+
+                <div className="md-navigator-right-stack">
+                  {/* 3 KPI Mini-Cards */}
+                  <div className="md-three-kpi-cards">
+                    <div className="md-panel md-mini-kpi">
+                      <span className="md-mini-kpi-icon">☀️</span>
+                      <div>
+                        <span className="md-label">PRÓXIMO AMANECER</span>
+                        <strong className="md-mini-kpi-val">
+                          {focusedCompareStats.nextSunDelta}
+                        </strong>
+                        <span className="md-caption">Ventana solar</span>
+                      </div>
                     </div>
-                    <div className="md-aws-site-row">
-                      <span>☀️ Sol Visible:</span>
-                      <strong className="sun">{solRow ? `${solRow.pct_visible}%` : '—'}</strong>
+
+                    <div className="md-panel md-mini-kpi">
+                      <span className="md-mini-kpi-icon">🕒</span>
+                      <div>
+                        <span className="md-label">LUZ CONTINUA</span>
+                        <strong className="md-mini-kpi-val">
+                          {focusedCompareStats.contLightDelta}
+                        </strong>
+                        <span className="md-caption">Duración estimada</span>
+                      </div>
                     </div>
-                    <div className="md-aws-site-row">
-                      <span>🌍 Tierra Visible:</span>
-                      <strong className="earth">
-                        {tierraRow ? `${tierraRow.pct_visible}%` : '—'}
-                      </strong>
-                    </div>
-                    <div className="md-caption">
-                      El. Tierra:{' '}
-                      {tierraRow ? `${tierraRow.el_min}° a ${tierraRow.el_max}°` : '—'}
+
+                    <div className="md-panel md-mini-kpi">
+                      <span className="md-mini-kpi-icon">🌍</span>
+                      <div>
+                        <span className="md-label">TIERRA VISIBLE</span>
+                        <strong className="md-mini-kpi-val">
+                          {focusedCompareStats.earthPct}%
+                        </strong>
+                        <span className="md-caption">Línea de visión</span>
+                      </div>
                     </div>
                   </div>
-                )
-              })}
+
+                  {/* ANÁLISIS DE SENSIBILIDAD · ¿Qué pasaría si...? */}
+                  <div className="md-panel md-sensitivity-card">
+                    <div className="md-panel-header-row">
+                      <div>
+                        <span className="md-eyebrow">ANÁLISIS DE SENSIBILIDAD</span>
+                        <h3 className="md-h2">
+                          {lang === 'es' ? '¿Qué pasaría si...?' : 'What if we delay?'}
+                        </h3>
+                      </div>
+                      <span className="md-tag-pill">RETRASO +{delayDays} DÍAS</span>
+                    </div>
+
+                    <div className="md-sensitivity-slider-block">
+                      <div className="md-sensitivity-slider-labels">
+                        <span>{lang === 'es' ? 'Retrasar el alunizaje' : 'Delay landing'}</span>
+                        <strong>{delayDays} días</strong>
+                      </div>
+                      <input
+                        type="range"
+                        min={0}
+                        max={28}
+                        value={delayDays}
+                        onChange={(e) => setDelayDays(Number(e.target.value))}
+                        className="md-range-slider"
+                      />
+                      <div className="md-time-slider-ticks">
+                        <span>0</span>
+                        <span>14</span>
+                        <span>28 días</span>
+                      </div>
+                    </div>
+
+                    <div className="md-sensitivity-bars">
+                      <div className="md-sens-bar-row">
+                        <div className="md-sens-bar-meta">
+                          <span>☀️ Iluminación solar</span>
+                          <small>{focusedCompareStats.sunPct}% disponible</small>
+                        </div>
+                        <div className="md-dual-bar-track">
+                          <div
+                            className="md-dual-bar-fill amber"
+                            style={{ width: `${Math.min(100, focusedCompareStats.sunPct)}%` }}
+                          />
+                        </div>
+                      </div>
+
+                      <div className="md-sens-bar-row">
+                        <div className="md-sens-bar-meta">
+                          <span>🌍 Enlace con la Tierra</span>
+                          <small>{focusedCompareStats.earthPct}% de visibilidad</small>
+                        </div>
+                        <div className="md-dual-bar-track">
+                          <div
+                            className="md-dual-bar-fill blue"
+                            style={{ width: `${Math.min(100, focusedCompareStats.earthPct)}%` }}
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="md-sensitivity-footer">
+                      <div className="md-abc-switcher" role="group" aria-label="Sitio analizado">
+                        <button
+                          type="button"
+                          className={compareSlot === 'A' ? 'md-abc-btn active' : 'md-abc-btn'}
+                          onClick={() => setCompareSlot('A')}
+                        >
+                          A · {compareLeftData?.site.name.split(' ')[0] ?? 'Sitio A'}
+                        </button>
+                        <button
+                          type="button"
+                          className={compareSlot === 'B' ? 'md-abc-btn active-light' : 'md-abc-btn'}
+                          onClick={() => setCompareSlot('B')}
+                        >
+                          B · {compareRightData?.site.name.split(' ')[0] ?? 'Sitio B'}
+                        </button>
+                        <button
+                          type="button"
+                          className={compareSlot === 'C' ? 'md-abc-btn active' : 'md-abc-btn'}
+                          onClick={() => {
+                            if (!compareThirdId) {
+                              const fallbackC =
+                                SITES.find(
+                                  (s) => s.id !== compareLeftId && s.id !== compareRightId,
+                                )?.id ?? 'apollo11'
+                              updateCompareSiteC(fallbackC)
+                            }
+                            setCompareSlot('C')
+                          }}
+                        >
+                          C · {compareThirdData ? compareThirdData.site.name.split(' ')[0] : 'Luna 3'}
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </section>
             </div>
-          </section>
+          )}
         </main>
       )}
 
