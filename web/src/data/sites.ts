@@ -50,8 +50,7 @@ export const SITES: Site[] = [
     lat: -89.67,
     lon: 129.78,
     heightKm: 0,
-    source:
-      'IAU/USGS Gazetteer of Planetary Nomenclature · Shackleton (Feature 5450), centro del cráter',
+    source: 'IAU/USGS Gazetteer of Planetary Nomenclature · Shackleton (Feature 5450)',
     region: 'Polo sur · Caso de prueba del filtro de punto ciego',
     description:
       'Centro del cráter Shackleton (21 km de diámetro), junto al polo sur. El horizonte de este sitio es un supuesto (paredes de 8° a 12°), todavía no medido con LOLA: sirve para mostrar cómo el filtro descarta un sitio cuando el relieve tapa el Sol y la Tierra.',
@@ -126,6 +125,10 @@ export function localizeSite<T extends Site>(site: T, lang: 'es' | 'en'): T {
         lang === 'es'
           ? 'Punto personalizado · horizonte liso (sin relieve)'
           : 'Custom point · smooth horizon (no terrain)',
+      source:
+        lang === 'es'
+          ? 'Coordenadas introducidas por el usuario'
+          : 'Coordinates entered by the user',
     }
   }
   const text =

@@ -401,8 +401,12 @@ export function App({ user, onSignOut }: AppProps) {
     try {
       const rep = await computeCustomReport(parsedLat, parsedLon)
       const secs = ((performance.now() - t0) / 1000).toFixed(1)
-      setCustomReport(rep)
-      setAllSitesData((prev) => ({ ...prev, [CUSTOM_SITE_ID]: { meta: rep.site, report: rep } }))
+      const localized = { ...rep, site: localizeSite(rep.site, lang) }
+      setCustomReport(localized)
+      setAllSitesData((prev) => ({
+        ...prev,
+        [CUSTOM_SITE_ID]: { meta: localized.site, report: localized },
+      }))
       setSiteId(CUSTOM_SITE_ID)
       setActiveTab('sheet')
       setCustomStatusMsg(
@@ -1260,9 +1264,13 @@ export function App({ user, onSignOut }: AppProps) {
           <header className="md-page-header">
             <div>
               <p className="md-eyebrow">
-                {lang === 'es'
-                  ? 'POLO SUR LUNAR · ANÁLISIS DE ESCENARIO'
-                  : 'LUNAR SOUTH POLE · SCENARIO ANALYSIS'}
+                {report.site.lat < -60
+                  ? lang === 'es'
+                    ? 'POLO SUR LUNAR · ANÁLISIS DE ESCENARIO'
+                    : 'LUNAR SOUTH POLE · SCENARIO ANALYSIS'
+                  : lang === 'es'
+                    ? 'SUPERFICIE LUNAR · ANÁLISIS DE ESCENARIO'
+                    : 'LUNAR SURFACE · SCENARIO ANALYSIS'}
               </p>
               <h1 className="md-display-title">{report.site.name}</h1>
               <p className="md-subtitle">
@@ -1929,8 +1937,12 @@ export function App({ user, onSignOut }: AppProps) {
                     <p className="md-caption">
                       {kpi.orbiterPhotoLoS
                         ? lang === 'es'
-                          ? `El modelo supone un paso del satélite a ${report.site.orbiterPassElDeg ?? '—'}° de elevación, por encima del horizonte del sitio.`
-                          : `The model assumes a satellite pass at ${report.site.orbiterPassElDeg ?? '—'}° elevation, above the site's horizon.`
+                          ? report.site.orbiterPassElDeg !== undefined
+                            ? `El modelo supone un paso del satélite a ${report.site.orbiterPassElDeg}° de elevación, por encima del horizonte del sitio.`
+                            : 'Sin relieve, el modelo supone que el satélite puede ver el sitio.'
+                          : report.site.orbiterPassElDeg !== undefined
+                            ? `The model assumes a satellite pass at ${report.site.orbiterPassElDeg}° elevation, above the site's horizon.`
+                            : 'With no terrain, the model assumes the satellite can see the site.'
                         : lang === 'es'
                           ? `Veto: el paso supuesto del satélite (${report.site.orbiterPassElDeg ?? '—'}°) queda tapado por el horizonte del sitio.`
                           : `Veto: the assumed satellite pass (${report.site.orbiterPassElDeg ?? '—'}°) is hidden by the site's horizon.`}
@@ -2018,8 +2030,12 @@ export function App({ user, onSignOut }: AppProps) {
                     </div>
                     <span className="md-caption">
                       {lang === 'es'
-                        ? `Supuesto del modelo · polvo ${dustRiskLabel(report.site.electrostaticDustRisk, lang).toLowerCase()}`
-                        : `Model assumption · ${dustRiskLabel(report.site.electrostaticDustRisk, lang).toLowerCase()} dust`}
+                        ? report.site.electrostaticDustRisk
+                          ? `Supuesto del modelo · polvo ${dustRiskLabel(report.site.electrostaticDustRisk, lang).toLowerCase()}`
+                          : 'Sin supuestos de ambiente: valores por defecto del modelo'
+                        : report.site.electrostaticDustRisk
+                          ? `Model assumption · ${dustRiskLabel(report.site.electrostaticDustRisk, lang).toLowerCase()} dust`
+                          : 'No environment assumptions: model defaults'}
                     </span>
                   </div>
                 </div>
