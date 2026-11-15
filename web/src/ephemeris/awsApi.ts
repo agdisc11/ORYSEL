@@ -1,6 +1,6 @@
 /**
  * Real-time client for the ORYSEL AWS EC2 FastAPI + PostgreSQL 16 backend
- * (`http://184.194.47.119:8000`) plus client-side FPS telemetry monitor.
+ * (`https://orysel.duckdns.org`) plus client-side FPS telemetry monitor.
  *
  * Includes a 3-second timeout and silent fallback to verified precomputed
  * NASA/JPL Horizons metrics so the live demo never breaks if offline.
@@ -9,16 +9,16 @@ import { useEffect, useState } from 'react'
 import type { Sample } from './types.ts'
 
 export const AWS_BASE_URL: string =
-  (import.meta.env.VITE_AWS_API_URL as string | undefined) || 'http://184.194.47.119:8000'
+  (import.meta.env.VITE_AWS_API_URL as string | undefined) || 'https://orysel.duckdns.org'
 
-/** Public IP of the EC2 instance that runs FastAPI + PostgreSQL. */
-export const AWS_EC2_HOST = '184.194.47.119'
+/** Hostnames that serve the app and the API from the EC2 instance itself. */
+export const AWS_EC2_HOSTS = ['orysel.duckdns.org', '184.194.47.119']
 
 /**
  * Where to send an API call, for any device that opens the app:
  *  1. `VITE_AWS_API_URL` at build time always wins.
  *  2. Served by the EC2 instance itself (e.g. a judge's phone on
- *     http://184.194.47.119:8000): same origin, relative path, no CORS.
+ *     https://orysel.duckdns.org): same origin, relative path, no CORS.
  *  3. Served over HTTPS (Vercel): the `/aws-api` rewrite in vercel.json, so the
  *     browser never mixes HTTPS with plain HTTP.
  *  4. Anything else (local dev on http): the EC2 API directly.
@@ -27,7 +27,7 @@ export function getEffectiveAwsUrl(path: string): string {
   const customEnv = import.meta.env.VITE_AWS_API_URL as string | undefined
   if (customEnv) return `${customEnv}${path}`
   if (typeof window !== 'undefined') {
-    if (window.location.hostname === AWS_EC2_HOST) return path
+    if (AWS_EC2_HOSTS.includes(window.location.hostname)) return path
     if (window.location.protocol === 'https:') return `/aws-api${path}`
   }
   return `${AWS_BASE_URL}${path}`
@@ -176,7 +176,7 @@ async function fetchWithTimeout<T>(url: string, timeoutMs = 3000): Promise<T> {
 
 /**
  * Queries `/api/ping` (measuring network RTT with `performance.now()`) and `/api/sites`
- * on the live AWS EC2 instance (`http://184.194.47.119:8000`). Falls back silently
+ * on the live AWS EC2 instance (`https://orysel.duckdns.org`). Falls back silently
  * if unreachable within 3 seconds.
  */
 export async function fetchAwsTelemetry(timeoutMs = 3000): Promise<AwsTelemetryState> {

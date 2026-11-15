@@ -5,9 +5,9 @@ Public, read-only routes serve the NASA/JPL Horizons ephemerides stored in
 `prueba.horizons_im2`. The `/api/auth/*` routes keep user accounts in the
 `app` schema of the same database.
 
-Run in production (systemd unit `orysel-api`):
-    uvicorn api:app --host 0.0.0.0 --port 8000
-Interactive docs: http://184.194.47.119:8000/docs
+Run in production (systemd unit `orysel-api`, behind Caddy, see Caddyfile):
+    uvicorn api:app --host 127.0.0.1 --port 8001 --proxy-headers
+Interactive docs: https://orysel.duckdns.org/docs
 
 Security notes
   * Passwords are stored only as scrypt hashes with a random salt.

@@ -8,20 +8,21 @@ NASA Space Apps Challenge 2026 · Tuxtla Gutiérrez · Challenge: **Lunar Landin
 
 ## Live AWS EC2 Backend & Open Telemetry API (`us-east-1`)
 
-Our cloud backend runs Ubuntu 24.04 + PostgreSQL 16 + FastAPI at `http://184.194.47.119:8000` with `CORS (*)` enabled so external teams, universities, and web applications can integrate our lunar telemetry directly:
+Our cloud backend runs Ubuntu 24.04 + PostgreSQL 16 + FastAPI at `https://orysel.duckdns.org` (HTTPS with Let's Encrypt via Caddy) with `CORS (*)` enabled so external teams, universities, and web applications can integrate our lunar telemetry directly:
 
-- **Swagger UI (Interactive OpenAPI Docs):** `http://184.194.47.119:8000/docs`
-- **Healthcheck & DB Latency (`GET /api/ping`):** `http://184.194.47.119:8000/api/ping`
+- **Swagger UI (Interactive OpenAPI Docs):** `https://orysel.duckdns.org/docs`
+- **Healthcheck & DB Latency (`GET /api/ping`):** `https://orysel.duckdns.org/api/ping`
   - Returns live `aws_region`, `engine`, `db_query_ms`, and `horizons_records` (`5,768` rows across 4 lunar sites).
-- **Consolidated Site Visibility (`GET /api/sites`):** `http://184.194.47.119:8000/api/sites`
+- **Consolidated Site Visibility (`GET /api/sites`):** `https://orysel.duckdns.org/api/sites`
   - Returns Sun & Earth min/max elevation and `pct_visible` across `apollo11`, `im2`, `reiner-gamma`, and `shackleton-blindspot`.
-- **Site Horizon Time Series (`GET /api/horizons/{sitio_id}`):** `http://184.194.47.119:8000/api/horizons/im2?limit=100`
+- **Site Horizon Time Series (`GET /api/horizons/{sitio_id}`):** `https://orysel.duckdns.org/api/horizons/im2?limit=100`
   - Returns hourly azimuth (`az_deg`) and elevation (`el_deg`) rows from `prueba.horizons_im2`.
 
 All backend deployment and ingestion scripts are available in [`pruebas/bd-nasa/`](./pruebas/bd-nasa/):
 - `api.py`: FastAPI REST server exposing `/api/ping`, `/api/sites`, and `/api/horizons/{sitio_id}`.
 - `cargar_todos.py`: Queries NASA/JPL Horizons API for all 4 lunar sites (`sol` and `tierra`) and populates `prueba.horizons_im2` (`5,768` rows).
 - `ud.sh`: Automated AWS EC2 Ubuntu 24.04 user-data (`cloud-init`) provisioning script.
+- `Caddyfile`: HTTPS front door (Caddy + Let's Encrypt) for `orysel.duckdns.org`; FastAPI itself listens only on `127.0.0.1:8001`, and old `http://184.194.47.119:8000` links redirect to HTTPS.
 - `cargar.sql` & `descargar_horizons.py`: Base SQL schema and standalone Horizons ingestion utility.
 
 ---
