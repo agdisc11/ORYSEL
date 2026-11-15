@@ -17,7 +17,7 @@ import psycopg2
 from psycopg2.extras import execute_values
 
 HORIZONS_URL = "https://ssd.jpl.nasa.gov/api/horizons.api"
-DB_DSN = os.getenv("ORYSEL_DB_DSN", "dbname=postgres user=postgres host=localhost")
+DB_DSN = os.getenv("ORYSEL_DB_DSN", "dbname=postgres user=postgres")  # local socket, peer auth
 
 SITIOS = [
     {"id": "im2", "lon": 1.4309, "lat": -84.7906, "alt": -1.307},

@@ -11,13 +11,21 @@ interface ArchitectureDefensePanelProps {
   onClose: () => void
 }
 
-const INTEGRATION_SNIPPET = `// 1. Consumir API abierta de ORYSEL en AWS EC2 (FastAPI + PostgreSQL 16)
-const res = await fetch('${AWS_BASE_URL}/api/sites');
-const { source, metrics } = await res.json();
-console.log('Fuente:', source, metrics);
+const INTEGRATION_SNIPPET = `// API de ORYSEL en AWS EC2 (FastAPI + PostgreSQL 16). Requiere una cuenta.
+// 1. Iniciar sesión y obtener un token
+const login = await fetch('${AWS_BASE_URL}/api/auth/login', {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({ email: 'tu@correo.com', password: 'tu-contraseña' }),
+});
+const { token } = await login.json();
 
-// 2. O incrustar el visor ORYSEL mediante iframe en cualquier portal externo:
-// <iframe src="https://orysel.vercel.app/" width="100%" height="640" style="border:0" loading="lazy" referrerpolicy="no-referrer" sandbox="allow-scripts allow-same-origin allow-popups"></iframe>`
+// 2. Llamar la API con el token
+const res = await fetch('${AWS_BASE_URL}/api/sites', {
+  headers: { Authorization: \`Bearer \${token}\` },
+});
+const { source, metrics } = await res.json();
+console.log('Fuente:', source, metrics);`
 
 export function ArchitectureDefensePanel({
   site,

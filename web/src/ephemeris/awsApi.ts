@@ -7,6 +7,7 @@
  */
 import { useEffect, useState } from 'react'
 import type { Sample } from './types.ts'
+import { getStoredToken, notifySessionExpired } from './authApi.ts'
 
 export const AWS_BASE_URL: string =
   (import.meta.env.VITE_AWS_API_URL as string | undefined) || 'https://orysel.duckdns.org'
@@ -165,8 +166,14 @@ export const FALLBACK_AWS_SITE_METRICS: AwsSiteBodyMetric[] = [
 async function fetchWithTimeout<T>(url: string, timeoutMs = 3000): Promise<T> {
   const controller = new AbortController()
   const timer = setTimeout(() => controller.abort(), timeoutMs)
+  const token = getStoredToken()
   try {
-    const response = await fetch(url, { signal: controller.signal })
+    const response = await fetch(url, {
+      signal: controller.signal,
+      credentials: 'omit',
+      headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+    })
+    if (response.status === 401 && token) notifySessionExpired()
     if (!response.ok) throw new Error(`HTTP ${response.status}`)
     return (await response.json()) as T
   } finally {
@@ -185,7 +192,10 @@ export async function fetchAwsTelemetry(timeoutMs = 3000): Promise<AwsTelemetryS
     const t0 = performance.now()
     const ping = await fetchWithTimeout<AwsPingResponse>(getEffectiveAwsUrl('/api/ping'), timeoutMs)
     const rttMs = Math.round((performance.now() - t0) * 10) / 10
-    const sites = await fetchWithTimeout<AwsSitesResponse>(getEffectiveAwsUrl('/api/sites'), timeoutMs)
+    const sites = await fetchWithTimeout<AwsSitesResponse>(
+      getEffectiveAwsUrl('/api/sites'),
+      timeoutMs,
+    )
 
     return {
       online: ping.status === 'online',
@@ -195,9 +205,10 @@ export async function fetchAwsTelemetry(timeoutMs = 3000): Promise<AwsTelemetryS
       awsRegion: ping.aws_region || 'us-east-1',
       engine: ping.engine || 'PostgreSQL 16 + FastAPI',
       sourceLabel: sites.source || 'AWS PostgreSQL (NASA/JPL Horizons)',
-      siteMetrics: Array.isArray(sites.metrics) && sites.metrics.length > 0
-        ? sites.metrics
-        : FALLBACK_AWS_SITE_METRICS,
+      siteMetrics:
+        Array.isArray(sites.metrics) && sites.metrics.length > 0
+          ? sites.metrics
+          : FALLBACK_AWS_SITE_METRICS,
       lastCheckedUtc: nowIso,
     }
   } catch {

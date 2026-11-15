@@ -19,8 +19,7 @@ import {
   ThreeMoonsComparisonSection,
   TwentyFourHourOutlook,
 } from './components/LunarVisualWidgets.tsx'
-import { AuthScreen } from './components/AuthScreen.tsx'
-import { logout, restoreSession, type AuthUser } from './ephemeris/authApi.ts'
+import { fetchReport, type AuthUser } from './ephemeris/authApi.ts'
 import { OryBotAssistant } from './components/OryBotAssistant.tsx'
 import { RocketVectorPlayground } from './components/RocketVectorPlayground.tsx'
 import { ArchitectureDefensePanel } from './components/ArchitectureDefensePanel.tsx'
@@ -81,7 +80,13 @@ function translateSiteDescription(site: Site, lang: Lang): string {
   return 'Deep south polar crater floor where an ~11° topographic rim blocks direct line-of-sight with Earth and creates orbital imaging blind spots.'
 }
 
-export function App() {
+interface AppProps {
+  /** Signed-in account; the app is only rendered behind AuthGate. */
+  user: AuthUser
+  onSignOut: () => void
+}
+
+export function App({ user, onSignOut }: AppProps) {
   const [siteId, setSiteId] = useState<string>(SITES[0].id)
   const [compareIds, setCompareIds] = useState<string[]>(['im2', 'reiner-gamma'])
   const [compareSlot, setCompareSlot] = useState<CompareSlot>('A')
@@ -109,22 +114,9 @@ export function App() {
   const [delayDays, setDelayDays] = useState<number>(2)
 
   // Modals & sub-tabs
-  const [showAuth, setShowAuth] = useState<boolean>(false)
   const [accountMenuOpen, setAccountMenuOpen] = useState<boolean>(false)
   const [showArchModal, setShowArchModal] = useState<boolean>(false)
   const [sheetBottomTab, setSheetBottomTab] = useState<'aws' | 'events' | 'spaceengine'>('aws')
-
-  // Signed-in account (AWS /api/auth). Restored from the stored token on load.
-  const [user, setUser] = useState<AuthUser | null>(null)
-  useEffect(() => {
-    let alive = true
-    restoreSession().then((restored) => {
-      if (alive) setUser(restored)
-    })
-    return () => {
-      alive = false
-    }
-  }, [])
 
   // Close the account menu on Escape or a click outside it
   useEffect(() => {
@@ -166,9 +158,7 @@ export function App() {
     let cancelled = false
     Promise.all(
       SITES.map(async (meta) => {
-        const res = await fetch(`${import.meta.env.BASE_URL}data/${meta.id}.json`)
-        if (!res.ok) throw new Error(`HTTP ${res.status}`)
-        const data = (await res.json()) as SiteReport
+        const data = await fetchReport(meta.id)
         const mergedSite = { ...meta, ...data.site }
         const enriched: SiteReport = {
           ...data,
@@ -222,11 +212,7 @@ export function App() {
     let cancelled = false
     const meta = SITES.find((s) => s.id === siteId) ?? SITES[0]
 
-    fetch(`${import.meta.env.BASE_URL}data/${siteId}.json`)
-      .then((r) => {
-        if (!r.ok) throw new Error(`HTTP ${r.status}`)
-        return r.json() as Promise<SiteReport>
-      })
+    fetchReport(siteId)
       .then((data) => {
         if (cancelled) return
         const mergedSite = { ...meta, ...data.site }
@@ -606,16 +592,7 @@ export function App() {
 
   return (
     <div className="md-app">
-      {showAuth && (
-        <AuthScreen
-          lang={lang}
-          onAuthenticated={(signedIn) => {
-            setUser(signedIn)
-            setShowAuth(false)
-          }}
-          onClose={() => setShowAuth(false)}
-        />
-      )}
+
 
       {showArchModal && report && kpi && activeSample && (
         <ArchitectureDefensePanel
@@ -718,30 +695,16 @@ export function App() {
           <div className="md-account">
             <button
               type="button"
-              className={user ? 'md-avatar-btn signed-in' : 'md-avatar-btn'}
-              onClick={() => (user ? setAccountMenuOpen((v) => !v) : setShowAuth(true))}
-              aria-haspopup={user ? 'menu' : 'dialog'}
-              aria-expanded={user ? accountMenuOpen : undefined}
-              aria-label={
-                user
-                  ? lang === 'es'
-                    ? `Cuenta de ${user.name}`
-                    : `${user.name}'s account`
-                  : lang === 'es'
-                    ? 'Iniciar sesión'
-                    : 'Sign in'
-              }
-              title={user ? user.name : lang === 'es' ? 'Iniciar sesión' : 'Sign in'}
+              className="md-avatar-btn signed-in"
+              onClick={() => setAccountMenuOpen((v) => !v)}
+              aria-haspopup="menu"
+              aria-expanded={accountMenuOpen}
+              aria-label={lang === 'es' ? `Cuenta de ${user.name}` : `${user.name}'s account`}
+              title={user.name}
             >
-              {user ? (
-                <span aria-hidden="true">{user.name.trim().charAt(0).toUpperCase() || '?'}</span>
-              ) : (
-                <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" aria-hidden="true">
-                  <path d="M12 12c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zm0 2c-3.33 0-10 1.67-10 5v3h20v-3c0-3.33-6.67-5-10-5z" />
-                </svg>
-              )}
+              <span aria-hidden="true">{user.name.trim().charAt(0).toUpperCase() || '?'}</span>
             </button>
-            {user && accountMenuOpen && (
+            {accountMenuOpen && (
               <div className="md-account-menu" role="menu">
                 <p className="md-account-name">{user.name}</p>
                 <p className="md-account-email">{user.email}</p>
@@ -749,10 +712,9 @@ export function App() {
                   type="button"
                   role="menuitem"
                   className="md-account-signout"
-                  onClick={async () => {
+                  onClick={() => {
                     setAccountMenuOpen(false)
-                    await logout()
-                    setUser(null)
+                    onSignOut()
                   }}
                 >
                   {lang === 'es' ? 'Cerrar sesión' : 'Sign out'}
@@ -3253,7 +3215,7 @@ export function App() {
           viability={kpi}
           profile={profileMode}
           activeSample={activeSample}
-          userName={user?.name ?? (lang === 'es' ? 'explorador' : 'explorer')}
+          userName={user.name}
           onSelectSiteId={(id: string) => setSiteId(id)}
           lang={lang}
         />

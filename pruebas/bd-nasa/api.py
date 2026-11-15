@@ -1,12 +1,13 @@
 """
 ORYSEL open API on AWS EC2 (Ubuntu 24.04 + PostgreSQL 16 + FastAPI).
 
-Public, read-only routes serve the NASA/JPL Horizons ephemerides stored in
-`prueba.horizons_im2`. The `/api/auth/*` routes keep user accounts in the
-`app` schema of the same database.
+An account is required for everything except the health check and the
+sign-in routes: `/api/sites`, `/api/horizons/*` and `/api/reports/*` need a
+Bearer token from `/api/auth/register` or `/api/auth/login`. Accounts live in
+the `app` schema; the NASA/JPL Horizons ephemerides in `prueba.horizons_im2`.
 
 Run in production (systemd unit `orysel-api`, behind Caddy, see Caddyfile):
-    uvicorn api:app --host 127.0.0.1 --port 8001 --proxy-headers
+    uvicorn api:app --host 127.0.0.1 --port 8001 --proxy-headers --no-server-header
 Interactive docs: https://orysel.duckdns.org/docs
 
 Security notes
@@ -33,18 +34,23 @@ from collections import defaultdict, deque
 from datetime import datetime, timedelta, timezone
 
 import psycopg
-from fastapi import Depends, FastAPI, Header, HTTPException, Path, Query, Request
+from fastapi import Depends, FastAPI, HTTPException, Path, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from fastapi.staticfiles import StaticFiles
 from psycopg.rows import dict_row
 from pydantic import BaseModel, Field
 
 FRONTEND_DIST = "/home/ubuntu/ORYSEL/web/dist"
+# Precomputed site reports (web/data in the repo). Not part of the public bundle.
+REPORTS_DIR = "/home/ubuntu/ORYSEL/web/data"
+SITE_ID_RE = re.compile(r"^[a-z0-9-]{1,64}$")
 SESSION_DAYS = 7
 APP_CSP = (
     "default-src 'self'; script-src 'self'; style-src 'self' https://fonts.googleapis.com; "
     "font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self'; "
-    "object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors *"
+    "object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'"
 )
 
 app = FastAPI(
@@ -77,6 +83,8 @@ async def security_headers(request: Request, call_next):
     # The web app gets a strict policy; /docs keeps its own (Swagger loads from a CDN).
     if not (path.startswith("/docs") or path.startswith("/redoc") or path.startswith("/openapi")):
         response.headers.setdefault("Content-Security-Policy", APP_CSP)
+        response.headers.setdefault("X-Frame-Options", "DENY")
+        response.headers.setdefault("Cross-Origin-Opener-Policy", "same-origin")
     return response
 
 
@@ -95,7 +103,33 @@ def connect():
 
 
 # ---------------------------------------------------------------------------
-# Public read-only data (NASA/JPL Horizons)
+# Session check used by every protected route
+# ---------------------------------------------------------------------------
+
+bearer = HTTPBearer(auto_error=False, description="Token returned by /api/auth/login or /api/auth/register")
+
+
+def current_session(creds: HTTPAuthorizationCredentials | None = Depends(bearer)) -> dict:
+    unauthorized = HTTPException(
+        status_code=401, detail="Sign in required", headers={"WWW-Authenticate": "Bearer"}
+    )
+    if creds is None or creds.scheme.lower() != "bearer" or not creds.credentials:
+        raise unauthorized
+    with connect() as conn, conn.cursor() as cur:
+        cur.execute(
+            """SELECT u.id, u.name, u.email, s.token_sha256
+               FROM app.sessions s JOIN app.users u ON u.id = s.user_id
+               WHERE s.token_sha256 = %s AND s.expires_at > now()""",
+            (token_sha256(creds.credentials),),
+        )
+        row = cur.fetchone()
+    if not row:
+        raise unauthorized
+    return row
+
+
+# ---------------------------------------------------------------------------
+# NASA/JPL Horizons data and site reports (account required, except /api/ping)
 # ---------------------------------------------------------------------------
 
 @app.get("/api/ping")
@@ -115,7 +149,7 @@ def ping_telemetry():
 
 
 @app.get("/api/sites")
-def get_sites_summary():
+def get_sites_summary(session: dict = Depends(current_session)):
     query = """
     SELECT
         sitio_id,
@@ -139,6 +173,7 @@ def get_sites_summary():
 def get_site_ephemeris(
     sitio_id: str = Path(max_length=64),
     limit: int = Query(default=100, ge=1, le=2000),
+    session: dict = Depends(current_session),
 ):
     query = """
     SELECT sitio_id, t, cuerpo, az_deg, el_deg, fuente
@@ -153,6 +188,20 @@ def get_site_ephemeris(
     if not rows:
         raise HTTPException(status_code=404, detail="Site not found")
     return {"sitio_id": sitio_id, "count": len(rows), "data": rows}
+
+
+@app.get("/api/reports/{site_id}")
+def get_site_report(
+    site_id: str = Path(max_length=64),
+    session: dict = Depends(current_session),
+):
+    """Precomputed SPICE report of one site (series, events, windows, metrics)."""
+    if not SITE_ID_RE.match(site_id):
+        raise HTTPException(status_code=404, detail="Site not found")
+    path = os.path.join(REPORTS_DIR, f"{site_id}.json")
+    if not os.path.isfile(path):
+        raise HTTPException(status_code=404, detail="Site not found")
+    return FileResponse(path, media_type="application/json", headers={"Cache-Control": "private, no-store"})
 
 
 # ---------------------------------------------------------------------------
@@ -231,12 +280,12 @@ def public_user(row: dict) -> dict:
     return {"id": row["id"], "name": row["name"], "email": row["email"]}
 
 
-# Throttle failed attempts over a 10-minute window: 8 per email, 50 per client
-# address (requests through the Vercel proxy share a few addresses).
+# Throttle over a 10-minute window: 8 failed logins per email, 50 per client
+# address, and 10 sign-ups per address (successful or not).
 _FAILS: dict[str, deque] = defaultdict(deque)
 _FAILS_LOCK = threading.Lock()
 FAIL_WINDOW_S = 600
-LIMITS = {"email": 8, "ip": 50, "reg-ip": 50}
+LIMITS = {"email": 8, "ip": 50, "reg-ip": 10}
 
 
 def _client_ip(request: Request) -> str:
@@ -286,12 +335,13 @@ def register(body: RegisterIn, request: Request):
     if not name:
         raise HTTPException(status_code=422, detail="Name is required")
     email = _clean_email(body.email)
-    if _too_many([f"reg-ip:{_client_ip(request)}"]):
+    reg_key = [f"reg-ip:{_client_ip(request)}"]
+    if _too_many(reg_key):
         raise HTTPException(status_code=429, detail="Too many attempts, try again later")
+    _record_failure(reg_key)
     with connect() as conn, conn.cursor() as cur:
         cur.execute("SELECT 1 FROM app.users WHERE lower(email) = lower(%s)", (email,))
         if cur.fetchone():
-            _record_failure([f"reg-ip:{_client_ip(request)}"])
             raise HTTPException(status_code=409, detail="An account with this email already exists")
         cur.execute(
             "INSERT INTO app.users (name, email, password_hash) VALUES (%s, %s, %s) RETURNING id, name, email",
@@ -320,23 +370,6 @@ def login(body: LoginIn, request: Request):
             raise HTTPException(status_code=401, detail="Incorrect email or password")
         token = new_session(cur, user["id"])
     return {"token": token, "user": public_user(user)}
-
-
-def current_session(authorization: str | None = Header(default=None)) -> dict:
-    if not authorization or not authorization.startswith("Bearer "):
-        raise HTTPException(status_code=401, detail="Not signed in")
-    token = authorization.removeprefix("Bearer ").strip()
-    with connect() as conn, conn.cursor() as cur:
-        cur.execute(
-            """SELECT u.id, u.name, u.email, s.token_sha256
-               FROM app.sessions s JOIN app.users u ON u.id = s.user_id
-               WHERE s.token_sha256 = %s AND s.expires_at > now()""",
-            (token_sha256(token),),
-        )
-        row = cur.fetchone()
-    if not row:
-        raise HTTPException(status_code=401, detail="Session expired, sign in again")
-    return row
 
 
 @app.get("/api/auth/me")

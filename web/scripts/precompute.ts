@@ -19,7 +19,8 @@ import { KERNEL_DIR, loadKernelFiles } from './kernels.ts'
 
 const start = process.argv[2] ?? '2026-11-14T00:00:00Z'
 const end = process.argv[3] ?? '2026-12-14T00:00:00Z'
-const outDir = join(dirname(fileURLToPath(import.meta.url)), '..', 'public', 'data')
+// Reports are served by the API to signed-in users (/api/reports), not as public files
+const outDir = join(dirname(fileURLToPath(import.meta.url)), '..', 'data')
 mkdirSync(outDir, { recursive: true })
 
 const allKernelsOnDisk = KERNELS.every(({ name }) => existsSync(join(KERNEL_DIR, name)))

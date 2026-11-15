@@ -18,7 +18,10 @@ interface AuthScreenProps {
   initialMode?: Mode
   lang?: Lang
   onAuthenticated: (user: AuthUser) => void
-  onClose: () => void
+  /** Omit when an account is required: no close button and Escape does nothing. */
+  onClose?: () => void
+  /** Message shown above the form, e.g. when a session expired. */
+  notice?: string | null
 }
 
 const T = {
@@ -144,6 +147,7 @@ export function AuthScreen({
   lang = 'es',
   onAuthenticated,
   onClose,
+  notice,
 }: AuthScreenProps) {
   const t = T[lang]
   const [mode, setMode] = useState<Mode>(initialMode)
@@ -162,7 +166,7 @@ export function AuthScreen({
     const previous = document.body.style.overflow
     document.body.style.overflow = 'hidden'
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose()
+      if (e.key === 'Escape' && onClose) onClose()
     }
     window.addEventListener('keydown', onKey)
     return () => {
@@ -316,16 +320,18 @@ export function AuthScreen({
       </aside>
 
       <section className="auth-panel">
-        <button type="button" className="auth-close" onClick={onClose} aria-label={t.close}>
-          <svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true">
-            <path
-              d="M3 3l10 10M13 3L3 13"
-              stroke="currentColor"
-              strokeWidth="1.6"
-              strokeLinecap="round"
-            />
-          </svg>
-        </button>
+        {onClose && (
+          <button type="button" className="auth-close" onClick={onClose} aria-label={t.close}>
+            <svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true">
+              <path
+                d="M3 3l10 10M13 3L3 13"
+                stroke="currentColor"
+                strokeWidth="1.6"
+                strokeLinecap="round"
+              />
+            </svg>
+          </button>
+        )}
 
         {framed ? (
           <div className="auth-form">
@@ -348,6 +354,11 @@ export function AuthScreen({
               {isLogin ? t.loginTitle : t.registerTitle}
             </h1>
             <p className="auth-sub">{isLogin ? t.loginSub : t.registerSub}</p>
+            {notice && (
+              <p className="auth-notice" role="status">
+                {notice}
+              </p>
+            )}
 
             {!isLogin && (
               <div className="auth-field">

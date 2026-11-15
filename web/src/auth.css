@@ -450,3 +450,43 @@
     padding: 48px 32px;
   }
 }
+
+/* --- Session notice and loading splash ------------------------------------- */
+.auth-notice {
+  margin: 0 0 16px;
+  padding: 10px 12px;
+  border-radius: 6px;
+  border: 1px solid rgba(91, 156, 245, 0.35);
+  background: rgba(59, 140, 255, 0.08);
+  font-size: 13px;
+  line-height: 1.45;
+  color: #c9dcf7;
+}
+
+.auth-splash {
+  min-height: 100vh;
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  background: #0f1217;
+}
+
+.auth-brand-static {
+  font-family: var(--font-display);
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: #ffffff;
+}
+
+.auth-brand-static span {
+  color: var(--earth);
+}
+
+.auth-splash-text {
+  font-size: 13px;
+  color: var(--auth-muted, #8a8f99);
+}

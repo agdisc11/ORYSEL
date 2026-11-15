@@ -6,20 +6,23 @@ NASA Space Apps Challenge 2026 · Tuxtla Gutiérrez · Challenge: **Lunar Landin
 
 ---
 
-## Live AWS EC2 Backend & Open Telemetry API (`us-east-1`)
+## Live AWS EC2 Backend & Telemetry API (`us-east-1`)
 
-Our cloud backend runs Ubuntu 24.04 + PostgreSQL 16 + FastAPI at `https://orysel.duckdns.org` (HTTPS with Let's Encrypt via Caddy) with `CORS (*)` enabled so external teams, universities, and web applications can integrate our lunar telemetry directly:
+Our cloud backend runs Ubuntu 24.04 + PostgreSQL 16 + FastAPI at `https://orysel.duckdns.org` (HTTPS with Let's Encrypt via Caddy) and **accounts are required**: the web app opens on the sign-in screen, and every data route needs a session token. External teams can still integrate: create an account, call `POST /api/auth/login` to get a token, and send it as `Authorization: Bearer <token>` (Swagger UI has an **Authorize** button).
+
+- **Accounts (`/api/auth/register`, `/api/auth/login`, `/api/auth/me`, `/api/auth/logout`):** passwords stored as scrypt hashes, session tokens stored only as SHA-256, 7-day sessions, throttled failed attempts.
 
 - **Swagger UI (Interactive OpenAPI Docs):** `https://orysel.duckdns.org/docs`
-- **Healthcheck & DB Latency (`GET /api/ping`):** `https://orysel.duckdns.org/api/ping`
+- **Healthcheck & DB Latency (`GET /api/ping`, public):** `https://orysel.duckdns.org/api/ping`
   - Returns live `aws_region`, `engine`, `db_query_ms`, and `horizons_records` (`5,768` rows across 4 lunar sites).
-- **Consolidated Site Visibility (`GET /api/sites`):** `https://orysel.duckdns.org/api/sites`
+- **Consolidated Site Visibility (`GET /api/sites`, token):** `https://orysel.duckdns.org/api/sites`
   - Returns Sun & Earth min/max elevation and `pct_visible` across `apollo11`, `im2`, `reiner-gamma`, and `shackleton-blindspot`.
-- **Site Horizon Time Series (`GET /api/horizons/{sitio_id}`):** `https://orysel.duckdns.org/api/horizons/im2?limit=100`
+- **Site Report (`GET /api/reports/{site_id}`, token):** precomputed SPICE report of one site (series, rise/set events, windows, metrics) from `web/data/`.
+- **Site Horizon Time Series (`GET /api/horizons/{sitio_id}`, token):** `https://orysel.duckdns.org/api/horizons/im2?limit=100`
   - Returns hourly azimuth (`az_deg`) and elevation (`el_deg`) rows from `prueba.horizons_im2`.
 
 All backend deployment and ingestion scripts are available in [`pruebas/bd-nasa/`](./pruebas/bd-nasa/):
-- `api.py`: FastAPI REST server exposing `/api/ping`, `/api/sites`, and `/api/horizons/{sitio_id}`.
+- `api.py`: FastAPI REST server with accounts (`/api/auth/*`) and the protected data routes `/api/sites`, `/api/horizons/{sitio_id}` and `/api/reports/{site_id}`.
 - `cargar_todos.py`: Queries NASA/JPL Horizons API for all 4 lunar sites (`sol` and `tierra`) and populates `prueba.horizons_im2` (`5,768` rows).
 - `ud.sh`: Automated AWS EC2 Ubuntu 24.04 user-data (`cloud-init`) provisioning script.
 - `Caddyfile`: HTTPS front door (Caddy + Let's Encrypt) for `orysel.duckdns.org`; FastAPI itself listens only on `127.0.0.1:8001`, and old `http://184.194.47.119:8000` links redirect to HTTPS.
@@ -57,7 +60,7 @@ All backend deployment and ingestion scripts are available in [`pruebas/bd-nasa/
 cd web
 npm install
 npm run kernels      # downloads NASA/NAIF kernels (~35 MB) and verifies SHA-256
-npm run precompute   # precomputes public/data/<site>.json for all sites in sites.ts
+npm run precompute   # precomputes data/<site>.json (served to signed-in users by /api/reports)
 npm run dev          # starts the Vite development server
 npm test             # runs unit tests + JPL Horizons validation
 npm run build        # type-checks and builds the production bundle

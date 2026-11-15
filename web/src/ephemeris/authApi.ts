@@ -6,6 +6,10 @@
  * a Bearer header (never as a cookie), so other sites cannot use it.
  */
 import { getEffectiveAwsUrl } from './awsApi.ts'
+import type { SiteReport } from './types.ts'
+
+/** Fired on window when the server rejects the stored token (expired or revoked). */
+export const SESSION_EXPIRED_EVENT = 'orysel:session-expired'
 
 export interface AuthUser {
   id: number
@@ -130,6 +134,27 @@ export async function logout(): Promise<void> {
     await request<void>('/api/auth/logout', { method: 'POST' }, token)
   } catch {
     // The local session is already gone; the server copy expires on its own.
+  }
+}
+
+/** Forget the local session and tell the app to show the sign-in screen. */
+export function notifySessionExpired(): void {
+  storeToken(null)
+  if (typeof window !== 'undefined') window.dispatchEvent(new Event(SESSION_EXPIRED_EVENT))
+}
+
+/** Precomputed SPICE report of one site; requires a signed-in session. */
+export async function fetchReport(siteId: string): Promise<SiteReport> {
+  const token = getStoredToken()
+  if (!token) {
+    notifySessionExpired()
+    throw new AuthError('expired', 'Not signed in')
+  }
+  try {
+    return await request<SiteReport>(`/api/reports/${encodeURIComponent(siteId)}`, {}, token)
+  } catch (error) {
+    if (error instanceof AuthError && error.code === 'expired') notifySessionExpired()
+    throw error
   }
 }
 

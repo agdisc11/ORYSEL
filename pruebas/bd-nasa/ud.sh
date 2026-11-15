@@ -12,8 +12,8 @@ apt-get install -y postgresql postgresql-contrib python3-pip python3-venv python
 systemctl enable postgresql
 systemctl start postgresql
 
-# Configurar acceso local para el usuario postgres
-sudo -u postgres psql -c "ALTER USER postgres WITH PASSWORD 'postgres';"
+# postgres usa autenticación local por socket (peer): no hace falta contraseña
+# y nunca se guarda una en el repositorio.
 
 # Crear directorio de aplicación
 mkdir -p /opt/orysel
@@ -45,7 +45,7 @@ After=network.target postgresql.service
 Type=simple
 User=postgres
 WorkingDirectory=/opt/orysel
-Environment="ORYSEL_DB_DSN=dbname=postgres user=postgres host=localhost"
+Environment="ORYSEL_DB_DSN=dbname=postgres user=postgres"
 Environment="AWS_REGION=us-east-1"
 ExecStart=/opt/orysel/venv/bin/uvicorn api:app --host 0.0.0.0 --port 8000
 Restart=always
