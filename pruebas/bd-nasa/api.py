@@ -1,143 +1,358 @@
 """
-API REST pública de ORYSEL en AWS EC2 (Ubuntu 24.04 + PostgreSQL 16 + FastAPI).
-Expone en tiempo real las efemérides topocéntricas de NASA/JPL Horizons almacenadas
-en la tabla `prueba.horizons_im2` (5,768 registros de los 4 sitios lunares).
+ORYSEL open API on AWS EC2 (Ubuntu 24.04 + PostgreSQL 16 + FastAPI).
 
-Ejecución en producción:
+Public, read-only routes serve the NASA/JPL Horizons ephemerides stored in
+`prueba.horizons_im2`. The `/api/auth/*` routes keep user accounts in the
+`app` schema of the same database.
+
+Run in production (systemd unit `orysel-api`):
     uvicorn api:app --host 0.0.0.0 --port 8000
-Documentación interactiva (Swagger UI):
-    http://184.194.47.119:8000/docs
+Interactive docs: http://184.194.47.119:8000/docs
+
+Security notes
+  * Passwords are stored only as scrypt hashes with a random salt.
+  * Session tokens are random (256 bits); the database keeps only their
+    SHA-256, so a leaked table cannot be replayed. Tokens expire in 7 days.
+  * Login answers the same message for "no such email" and "wrong password",
+    and repeated failures from one address are throttled.
+  * Auth uses a Bearer header, never cookies, so CORS "*" cannot be used to
+    act on someone's behalf from another site.
 """
 
+from __future__ import annotations
+
+import base64
+import hashlib
+import hmac
 import os
+import re
+import secrets
+import threading
 import time
-from typing import Optional
+from collections import defaultdict, deque
+from datetime import datetime, timedelta, timezone
 
-import psycopg2
-from psycopg2.extras import RealDictCursor
-from fastapi import FastAPI, HTTPException, Query
+import psycopg
+from fastapi import Depends, FastAPI, Header, HTTPException, Path, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
+from psycopg.rows import dict_row
+from pydantic import BaseModel, Field
 
-DB_DSN = os.getenv("ORYSEL_DB_DSN", "dbname=postgres user=postgres host=localhost")
-AWS_REGION = os.getenv("AWS_REGION", "us-east-1")
+FRONTEND_DIST = "/home/ubuntu/ORYSEL/web/dist"
+SESSION_DAYS = 7
+APP_CSP = (
+    "default-src 'self'; script-src 'self'; style-src 'self' https://fonts.googleapis.com; "
+    "font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self'; "
+    "object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors *"
+)
 
 app = FastAPI(
-    title="ORYSEL Lunar Viability & NASA JPL Horizons API",
+    title="ORYSEL Lunar Mission Open API (AWS + NASA JPL Horizons)",
     description=(
-        "API abierta de mecánica orbital y telemetría topocéntrica lunar respaldada por "
-        "PostgreSQL 16 en AWS EC2 y efemérides oficiales de NASA/JPL Horizons."
+        "Open API on AWS EC2 backed by PostgreSQL with NASA/JPL Horizons ephemerides, "
+        "plus user accounts for the MOON DIAL web app."
     ),
-    version="2.0.0",
+    version="1.1.0",
 )
 
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
     allow_credentials=False,
-    allow_methods=["GET", "OPTIONS"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST", "OPTIONS"],
+    allow_headers=["Authorization", "Content-Type"],
 )
 
 
-def get_conn():
-    return psycopg2.connect(DB_DSN, cursor_factory=RealDictCursor)
+@app.middleware("http")
+async def security_headers(request: Request, call_next):
+    response = await call_next(request)
+    response.headers.setdefault("X-Content-Type-Options", "nosniff")
+    response.headers.setdefault("Referrer-Policy", "strict-origin-when-cross-origin")
+    response.headers.setdefault("Permissions-Policy", "camera=(), microphone=(), geolocation=()")
+    path = request.url.path
+    if path.startswith("/api/auth"):
+        response.headers["Cache-Control"] = "no-store"
+    # The web app gets a strict policy; /docs keeps its own (Swagger loads from a CDN).
+    if not (path.startswith("/docs") or path.startswith("/redoc") or path.startswith("/openapi")):
+        response.headers.setdefault("Content-Security-Policy", APP_CSP)
+    return response
 
 
-@app.get("/api/ping", summary="Healthcheck y latencia de PostgreSQL en AWS EC2")
-def api_ping():
+def get_db_url() -> str:
+    env_path = "/home/ubuntu/db.env"
+    if os.path.exists(env_path):
+        with open(env_path) as f:
+            for line in f:
+                if line.startswith("DATABASE_URL="):
+                    return line.strip().split("=", 1)[1]
+    return os.environ.get("DATABASE_URL", "")
+
+
+def connect():
+    return psycopg.connect(get_db_url(), row_factory=dict_row)
+
+
+# ---------------------------------------------------------------------------
+# Public read-only data (NASA/JPL Horizons)
+# ---------------------------------------------------------------------------
+
+@app.get("/api/ping")
+def ping_telemetry():
     t0 = time.perf_counter()
-    try:
-        with get_conn() as conn, conn.cursor() as cur:
-            cur.execute("SELECT count(*)::int AS total FROM prueba.horizons_im2;")
-            row = cur.fetchone()
-            total = row["total"] if row else 0
-    except Exception as exc:
-        raise HTTPException(status_code=500, detail=f"PostgreSQL connection error: {exc}") from exc
-
-    db_ms = round((time.perf_counter() - t0) * 1000.0, 2)
+    with connect() as conn, conn.cursor() as cur:
+        cur.execute("SELECT count(*) AS total_rows FROM prueba.horizons_im2;")
+        row = cur.fetchone()
+    db_ms = round((time.perf_counter() - t0) * 1000, 2)
     return {
         "status": "online",
-        "aws_region": AWS_REGION,
+        "aws_region": "us-east-1",
         "engine": "PostgreSQL 16 + FastAPI",
         "db_query_ms": db_ms,
-        "horizons_records": total,
+        "horizons_records": row["total_rows"] if row else 0,
     }
 
 
-@app.get("/api/sites", summary="Métricas consolidadas de visibilidad Sol/Tierra por sitio lunar")
-def api_sites():
-    sql = """
-        SELECT
-            sitio_id,
-            cuerpo,
-            count(*)::int AS filas,
-            min(t) AS desde,
-            max(t) AS hasta,
-            round(min(el_deg)::numeric, 2)::float AS el_min,
-            round(max(el_deg)::numeric, 2)::float AS el_max,
-            round(100.0 * avg((el_deg > 0)::int), 1)::float AS pct_visible
-        FROM prueba.horizons_im2
-        GROUP BY sitio_id, cuerpo
-        ORDER BY sitio_id, cuerpo;
+@app.get("/api/sites")
+def get_sites_summary():
+    query = """
+    SELECT
+        sitio_id,
+        cuerpo,
+        count(*) AS filas,
+        min(t) AS desde,
+        max(t) AS hasta,
+        round(min(el_deg)::numeric, 2) AS el_min,
+        round(max(el_deg)::numeric, 2) AS el_max,
+        round(100.0 * avg((el_deg > 0)::int), 1) AS pct_visible
+    FROM prueba.horizons_im2
+    GROUP BY sitio_id, cuerpo
+    ORDER BY sitio_id, cuerpo;
     """
-    try:
-        with get_conn() as conn, conn.cursor() as cur:
-            cur.execute(sql)
-            rows = cur.fetchall()
-            for r in rows:
-                if r.get("desde") is not None:
-                    r["desde"] = r["desde"].isoformat()
-                if r.get("hasta") is not None:
-                    r["hasta"] = r["hasta"].isoformat()
-    except Exception as exc:
-        raise HTTPException(status_code=500, detail=f"Database query error: {exc}") from exc
-
-    return {
-        "source": "AWS PostgreSQL (NASA/JPL Horizons)",
-        "metrics": rows,
-    }
+    with connect() as conn, conn.cursor() as cur:
+        cur.execute(query)
+        return {"source": "AWS PostgreSQL (NASA/JPL Horizons)", "metrics": cur.fetchall()}
 
 
-@app.get(
-    "/api/horizons/{sitio_id}",
-    summary="Serie de tiempo de acimut y elevación (Sol y Tierra) para un sitio lunar",
-)
-def api_horizons_site(
-    sitio_id: str,
-    limit: int = Query(default=100, ge=1, le=2000, description="Número máximo de filas a retornar"),
-    cuerpo: Optional[str] = Query(default=None, description="Filtrar por 'sol' o 'tierra'"),
+@app.get("/api/horizons/{sitio_id}")
+def get_site_ephemeris(
+    sitio_id: str = Path(max_length=64),
+    limit: int = Query(default=100, ge=1, le=2000),
 ):
-    if cuerpo in ("sol", "tierra"):
-        sql = """
-            SELECT sitio_id, t, cuerpo, az_deg, el_deg, fuente
-            FROM prueba.horizons_im2
-            WHERE sitio_id = %s AND cuerpo = %s
-            ORDER BY t ASC, cuerpo ASC
-            LIMIT %s;
-        """
-        params = (sitio_id, cuerpo, limit)
-    else:
-        sql = """
-            SELECT sitio_id, t, cuerpo, az_deg, el_deg, fuente
-            FROM prueba.horizons_im2
-            WHERE sitio_id = %s
-            ORDER BY t ASC, cuerpo ASC
-            LIMIT %s;
-        """
-        params = (sitio_id, limit)
+    query = """
+    SELECT sitio_id, t, cuerpo, az_deg, el_deg, fuente
+    FROM prueba.horizons_im2
+    WHERE sitio_id = %s
+    ORDER BY t ASC, cuerpo ASC
+    LIMIT %s;
+    """
+    with connect() as conn, conn.cursor() as cur:
+        cur.execute(query, (sitio_id, limit))
+        rows = cur.fetchall()
+    if not rows:
+        raise HTTPException(status_code=404, detail="Site not found")
+    return {"sitio_id": sitio_id, "count": len(rows), "data": rows}
 
+
+# ---------------------------------------------------------------------------
+# Accounts
+# ---------------------------------------------------------------------------
+
+SCHEMA_SQL = """
+CREATE SCHEMA IF NOT EXISTS app;
+CREATE TABLE IF NOT EXISTS app.users (
+    id            bigserial PRIMARY KEY,
+    name          text NOT NULL,
+    email         text NOT NULL,
+    password_hash text NOT NULL,
+    created_at    timestamptz NOT NULL DEFAULT now()
+);
+CREATE UNIQUE INDEX IF NOT EXISTS users_email_lower ON app.users (lower(email));
+CREATE TABLE IF NOT EXISTS app.sessions (
+    token_sha256 text PRIMARY KEY,
+    user_id      bigint NOT NULL REFERENCES app.users(id) ON DELETE CASCADE,
+    created_at   timestamptz NOT NULL DEFAULT now(),
+    expires_at   timestamptz NOT NULL
+);
+CREATE INDEX IF NOT EXISTS sessions_user ON app.sessions (user_id);
+"""
+
+
+@app.on_event("startup")
+def create_auth_tables() -> None:
+    with connect() as conn, conn.cursor() as cur:
+        cur.execute(SCHEMA_SQL)
+
+
+EMAIL_RE = re.compile(r"^[^@\s]{1,64}@[^@\s]{1,189}\.[^@\s]{2,63}$")
+SCRYPT_N, SCRYPT_R, SCRYPT_P = 2**14, 8, 1
+
+
+def hash_password(password: str) -> str:
+    salt = secrets.token_bytes(16)
+    digest = hashlib.scrypt(password.encode(), salt=salt, n=SCRYPT_N, r=SCRYPT_R, p=SCRYPT_P, dklen=32)
+    b64 = lambda b: base64.b64encode(b).decode()  # noqa: E731
+    return f"scrypt${SCRYPT_N}${SCRYPT_R}${SCRYPT_P}${b64(salt)}${b64(digest)}"
+
+
+def verify_password(password: str, stored: str) -> bool:
     try:
-        with get_conn() as conn, conn.cursor() as cur:
-            cur.execute(sql, params)
-            rows = cur.fetchall()
-            for r in rows:
-                if r.get("t") is not None:
-                    r["t"] = r["t"].isoformat()
-    except Exception as exc:
-        raise HTTPException(status_code=500, detail=f"Database query error: {exc}") from exc
+        _, n, r, p, salt, digest = stored.split("$")
+        expected = base64.b64decode(digest)
+        actual = hashlib.scrypt(
+            password.encode(), salt=base64.b64decode(salt), n=int(n), r=int(r), p=int(p), dklen=len(expected)
+        )
+        return hmac.compare_digest(actual, expected)
+    except (ValueError, TypeError):
+        return False
 
-    return {
-        "sitio_id": sitio_id,
-        "count": len(rows),
-        "rows": rows,
-    }
+
+# A fixed hash so that a login for an unknown email costs the same time.
+_DUMMY_HASH = hash_password(secrets.token_urlsafe(16))
+
+
+def token_sha256(token: str) -> str:
+    return hashlib.sha256(token.encode()).hexdigest()
+
+
+def new_session(cur, user_id: int) -> str:
+    token = secrets.token_urlsafe(32)
+    expires = datetime.now(timezone.utc) + timedelta(days=SESSION_DAYS)
+    cur.execute(
+        "INSERT INTO app.sessions (token_sha256, user_id, expires_at) VALUES (%s, %s, %s)",
+        (token_sha256(token), user_id, expires),
+    )
+    cur.execute("DELETE FROM app.sessions WHERE expires_at < now()")
+    return token
+
+
+def public_user(row: dict) -> dict:
+    return {"id": row["id"], "name": row["name"], "email": row["email"]}
+
+
+# Throttle failed attempts over a 10-minute window: 8 per email, 50 per client
+# address (requests through the Vercel proxy share a few addresses).
+_FAILS: dict[str, deque] = defaultdict(deque)
+_FAILS_LOCK = threading.Lock()
+FAIL_WINDOW_S = 600
+LIMITS = {"email": 8, "ip": 50, "reg-ip": 50}
+
+
+def _client_ip(request: Request) -> str:
+    return request.client.host if request.client else "unknown"
+
+
+def _too_many(keys: list[str]) -> bool:
+    now = time.monotonic()
+    with _FAILS_LOCK:
+        for key in keys:
+            q = _FAILS[key]
+            while q and now - q[0] > FAIL_WINDOW_S:
+                q.popleft()
+            if len(q) >= LIMITS[key.split(":", 1)[0]]:
+                return True
+    return False
+
+
+def _record_failure(keys: list[str]) -> None:
+    now = time.monotonic()
+    with _FAILS_LOCK:
+        for key in keys:
+            _FAILS[key].append(now)
+
+
+class RegisterIn(BaseModel):
+    name: str = Field(min_length=1, max_length=80)
+    email: str = Field(min_length=3, max_length=254)
+    password: str = Field(min_length=8, max_length=128)
+
+
+class LoginIn(BaseModel):
+    email: str = Field(min_length=3, max_length=254)
+    password: str = Field(min_length=1, max_length=128)
+
+
+def _clean_email(email: str) -> str:
+    email = email.strip()
+    if not EMAIL_RE.match(email):
+        raise HTTPException(status_code=422, detail="Invalid email address")
+    return email
+
+
+@app.post("/api/auth/register", status_code=201)
+def register(body: RegisterIn, request: Request):
+    name = " ".join(body.name.split())
+    if not name:
+        raise HTTPException(status_code=422, detail="Name is required")
+    email = _clean_email(body.email)
+    if _too_many([f"reg-ip:{_client_ip(request)}"]):
+        raise HTTPException(status_code=429, detail="Too many attempts, try again later")
+    with connect() as conn, conn.cursor() as cur:
+        cur.execute("SELECT 1 FROM app.users WHERE lower(email) = lower(%s)", (email,))
+        if cur.fetchone():
+            _record_failure([f"reg-ip:{_client_ip(request)}"])
+            raise HTTPException(status_code=409, detail="An account with this email already exists")
+        cur.execute(
+            "INSERT INTO app.users (name, email, password_hash) VALUES (%s, %s, %s) RETURNING id, name, email",
+            (name, email, hash_password(body.password)),
+        )
+        user = cur.fetchone()
+        token = new_session(cur, user["id"])
+    return {"token": token, "user": public_user(user)}
+
+
+@app.post("/api/auth/login")
+def login(body: LoginIn, request: Request):
+    email = body.email.strip()
+    keys = [f"ip:{_client_ip(request)}", f"email:{email.lower()}"]
+    if _too_many(keys):
+        raise HTTPException(status_code=429, detail="Too many attempts, try again in a few minutes")
+    with connect() as conn, conn.cursor() as cur:
+        cur.execute(
+            "SELECT id, name, email, password_hash FROM app.users WHERE lower(email) = lower(%s)",
+            (email,),
+        )
+        user = cur.fetchone()
+        ok = verify_password(body.password, user["password_hash"] if user else _DUMMY_HASH)
+        if not (user and ok):
+            _record_failure(keys)
+            raise HTTPException(status_code=401, detail="Incorrect email or password")
+        token = new_session(cur, user["id"])
+    return {"token": token, "user": public_user(user)}
+
+
+def current_session(authorization: str | None = Header(default=None)) -> dict:
+    if not authorization or not authorization.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="Not signed in")
+    token = authorization.removeprefix("Bearer ").strip()
+    with connect() as conn, conn.cursor() as cur:
+        cur.execute(
+            """SELECT u.id, u.name, u.email, s.token_sha256
+               FROM app.sessions s JOIN app.users u ON u.id = s.user_id
+               WHERE s.token_sha256 = %s AND s.expires_at > now()""",
+            (token_sha256(token),),
+        )
+        row = cur.fetchone()
+    if not row:
+        raise HTTPException(status_code=401, detail="Session expired, sign in again")
+    return row
+
+
+@app.get("/api/auth/me")
+def me(session: dict = Depends(current_session)):
+    return {"user": public_user(session)}
+
+
+@app.post("/api/auth/logout", status_code=204)
+def logout(session: dict = Depends(current_session)):
+    with connect() as conn, conn.cursor() as cur:
+        cur.execute("DELETE FROM app.sessions WHERE token_sha256 = %s", (session["token_sha256"],))
+
+
+# ---------------------------------------------------------------------------
+# The built web app, served from the same origin (no CORS for judges' phones)
+# ---------------------------------------------------------------------------
+
+if os.path.isdir(FRONTEND_DIST):
+    app.mount("/", StaticFiles(directory=FRONTEND_DIST, html=True), name="frontend")

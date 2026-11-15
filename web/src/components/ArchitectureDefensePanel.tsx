@@ -17,7 +17,7 @@ const { source, metrics } = await res.json();
 console.log('Fuente:', source, metrics);
 
 // 2. O incrustar el visor ORYSEL mediante iframe en cualquier portal externo:
-// <iframe src="https://agdisc11.github.io/ORYSEL/" width="100%" height="640" style="border:0"></iframe>`
+// <iframe src="https://orysel.vercel.app/" width="100%" height="640" style="border:0" loading="lazy" referrerpolicy="no-referrer" sandbox="allow-scripts allow-same-origin allow-popups"></iframe>`
 
 export function ArchitectureDefensePanel({
   site,

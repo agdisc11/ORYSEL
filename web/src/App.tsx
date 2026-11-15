@@ -19,7 +19,8 @@ import {
   ThreeMoonsComparisonSection,
   TwentyFourHourOutlook,
 } from './components/LunarVisualWidgets.tsx'
-import { OnboardingModal, type UserSession } from './components/OnboardingModal.tsx'
+import { AuthScreen } from './components/AuthScreen.tsx'
+import { logout, restoreSession, type AuthUser } from './ephemeris/authApi.ts'
 import { OryBotAssistant } from './components/OryBotAssistant.tsx'
 import { RocketVectorPlayground } from './components/RocketVectorPlayground.tsx'
 import { ArchitectureDefensePanel } from './components/ArchitectureDefensePanel.tsx'
@@ -108,15 +109,39 @@ export function App() {
   const [delayDays, setDelayDays] = useState<number>(2)
 
   // Modals & sub-tabs
-  const [showOnboarding, setShowOnboarding] = useState<boolean>(false)
+  const [showAuth, setShowAuth] = useState<boolean>(false)
+  const [accountMenuOpen, setAccountMenuOpen] = useState<boolean>(false)
   const [showArchModal, setShowArchModal] = useState<boolean>(false)
   const [sheetBottomTab, setSheetBottomTab] = useState<'aws' | 'events' | 'spaceengine'>('aws')
 
-  const [session, setSession] = useState<UserSession>({
-    name: 'Comandante ORYSEL',
-    organization: 'NASA Space Apps · Tuxtla',
-    profile: 'executive',
-  })
+  // Signed-in account (AWS /api/auth). Restored from the stored token on load.
+  const [user, setUser] = useState<AuthUser | null>(null)
+  useEffect(() => {
+    let alive = true
+    restoreSession().then((restored) => {
+      if (alive) setUser(restored)
+    })
+    return () => {
+      alive = false
+    }
+  }, [])
+
+  // Close the account menu on Escape or a click outside it
+  useEffect(() => {
+    if (!accountMenuOpen) return
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setAccountMenuOpen(false)
+    }
+    const onDown = (e: PointerEvent) => {
+      if (!(e.target as Element | null)?.closest('.md-account')) setAccountMenuOpen(false)
+    }
+    window.addEventListener('keydown', onKey)
+    window.addEventListener('pointerdown', onDown)
+    return () => {
+      window.removeEventListener('keydown', onKey)
+      window.removeEventListener('pointerdown', onDown)
+    }
+  }, [accountMenuOpen])
 
   // Live Client FPS & AWS EC2 Telemetry
   const clientFps = useClientFps()
@@ -581,16 +606,14 @@ export function App() {
 
   return (
     <div className="md-app">
-      {showOnboarding && (
-        <OnboardingModal
-          session={session}
+      {showAuth && (
+        <AuthScreen
           lang={lang}
-          onComplete={(newSession) => {
-            setSession(newSession)
-            setProfileMode(newSession.profile)
-            setShowOnboarding(false)
+          onAuthenticated={(signedIn) => {
+            setUser(signedIn)
+            setShowAuth(false)
           }}
-          onClose={() => setShowOnboarding(false)}
+          onClose={() => setShowAuth(false)}
         />
       )}
 
@@ -691,21 +714,52 @@ export function App() {
             <span>?</span> {lang === 'es' ? 'Modo' : 'Mode'}
           </button>
 
-          {/* User Avatar button (opens Split-Screen MoonDial Login/Register Modal) */}
-          <button
-            type="button"
-            className="md-avatar-btn"
-            onClick={() => setShowOnboarding(true)}
-            title={
-              lang === 'es'
-                ? `Perfil: ${session.name} (${session.organization})`
-                : `Profile: ${session.name} (${session.organization})`
-            }
-          >
-            <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" aria-hidden="true">
-              <path d="M12 12c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zm0 2c-3.33 0-10 1.67-10 5v3h20v-3c0-3.33-6.67-5-10-5z" />
-            </svg>
-          </button>
+          {/* Account: sign in when signed out, account menu when signed in */}
+          <div className="md-account">
+            <button
+              type="button"
+              className={user ? 'md-avatar-btn signed-in' : 'md-avatar-btn'}
+              onClick={() => (user ? setAccountMenuOpen((v) => !v) : setShowAuth(true))}
+              aria-haspopup={user ? 'menu' : 'dialog'}
+              aria-expanded={user ? accountMenuOpen : undefined}
+              aria-label={
+                user
+                  ? lang === 'es'
+                    ? `Cuenta de ${user.name}`
+                    : `${user.name}'s account`
+                  : lang === 'es'
+                    ? 'Iniciar sesión'
+                    : 'Sign in'
+              }
+              title={user ? user.name : lang === 'es' ? 'Iniciar sesión' : 'Sign in'}
+            >
+              {user ? (
+                <span aria-hidden="true">{user.name.trim().charAt(0).toUpperCase() || '?'}</span>
+              ) : (
+                <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" aria-hidden="true">
+                  <path d="M12 12c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zm0 2c-3.33 0-10 1.67-10 5v3h20v-3c0-3.33-6.67-5-10-5z" />
+                </svg>
+              )}
+            </button>
+            {user && accountMenuOpen && (
+              <div className="md-account-menu" role="menu">
+                <p className="md-account-name">{user.name}</p>
+                <p className="md-account-email">{user.email}</p>
+                <button
+                  type="button"
+                  role="menuitem"
+                  className="md-account-signout"
+                  onClick={async () => {
+                    setAccountMenuOpen(false)
+                    await logout()
+                    setUser(null)
+                  }}
+                >
+                  {lang === 'es' ? 'Cerrar sesión' : 'Sign out'}
+                </button>
+              </div>
+            )}
+          </div>
         </div>
       </header>
 
@@ -3199,7 +3253,7 @@ export function App() {
           viability={kpi}
           profile={profileMode}
           activeSample={activeSample}
-          userName={session.name}
+          userName={user?.name ?? (lang === 'es' ? 'explorador' : 'explorer')}
           onSelectSiteId={(id: string) => setSiteId(id)}
           lang={lang}
         />
