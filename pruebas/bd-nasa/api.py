@@ -87,6 +87,12 @@ async def security_headers(request: Request, call_next):
     path = request.url.path
     if path.startswith("/api/auth"):
         response.headers["Cache-Control"] = "no-store"
+    elif path.startswith("/assets/"):
+        # Built files carry a content hash in their name: cache them for good
+        response.headers["Cache-Control"] = "public, max-age=31536000, immutable"
+    elif not path.startswith("/api/") and not path.startswith("/docs") and not path.startswith("/openapi"):
+        # The page itself is always re-checked, so an update shows up on the next visit
+        response.headers["Cache-Control"] = "no-cache"
     # The web app gets a strict policy; /docs keeps its own (Swagger loads from a CDN).
     if not (path.startswith("/docs") or path.startswith("/redoc") or path.startswith("/openapi")):
         response.headers.setdefault("Content-Security-Policy", APP_CSP)
