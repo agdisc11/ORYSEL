@@ -2,5 +2,11 @@
   "buildCommand": "npm --prefix web install && npm --prefix web run build",
   "outputDirectory": "web/dist",
   "installCommand": "npm --prefix web install",
-  "framework": null
+  "framework": null,
+  "rewrites": [
+    {
+      "source": "/aws-api/:path*",
+      "destination": "http://184.194.47.119:8000/:path*"
+    }
+  ]
 }

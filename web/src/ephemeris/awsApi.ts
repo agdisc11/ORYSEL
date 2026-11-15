@@ -11,6 +11,15 @@ import type { Sample } from './types.ts'
 export const AWS_BASE_URL: string =
   (import.meta.env.VITE_AWS_API_URL as string | undefined) || 'http://184.194.47.119:8000'
 
+function getEffectiveAwsUrl(path: string): string {
+  const customEnv = import.meta.env.VITE_AWS_API_URL as string | undefined
+  if (customEnv) return `${customEnv}${path}`
+  if (typeof window !== 'undefined' && window.location.protocol === 'https:') {
+    return `/aws-api${path}`
+  }
+  return `${AWS_BASE_URL}${path}`
+}
+
 export interface AwsPingResponse {
   status: string
   aws_region: string
@@ -161,9 +170,9 @@ export async function fetchAwsTelemetry(timeoutMs = 3000): Promise<AwsTelemetryS
   const nowIso = new Date().toISOString()
   try {
     const t0 = performance.now()
-    const ping = await fetchWithTimeout<AwsPingResponse>(`${AWS_BASE_URL}/api/ping`, timeoutMs)
+    const ping = await fetchWithTimeout<AwsPingResponse>(getEffectiveAwsUrl('/api/ping'), timeoutMs)
     const rttMs = Math.round((performance.now() - t0) * 10) / 10
-    const sites = await fetchWithTimeout<AwsSitesResponse>(`${AWS_BASE_URL}/api/sites`, timeoutMs)
+    const sites = await fetchWithTimeout<AwsSitesResponse>(getEffectiveAwsUrl('/api/sites'), timeoutMs)
 
     return {
       online: ping.status === 'online',
@@ -206,7 +215,7 @@ export async function fetchSiteHorizons(
   try {
     const raw = await fetchWithTimeout<
       AwsHorizonRow[] | { rows?: AwsHorizonRow[]; data?: AwsHorizonRow[] }
-    >(`${AWS_BASE_URL}/api/horizons/${encodeURIComponent(sitioId)}?limit=${limit}`, timeoutMs)
+    >(getEffectiveAwsUrl(`/api/horizons/${encodeURIComponent(sitioId)}?limit=${limit}`), timeoutMs)
 
     const list = Array.isArray(raw) ? raw : (raw.rows ?? raw.data ?? [])
     if (list.length > 0) {
