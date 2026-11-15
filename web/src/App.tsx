@@ -2,15 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { SITES, localizeSite } from './data/sites.ts'
 import type { Site, SiteReport, UserProfileMode } from './ephemeris/types.ts'
 import { computeViabilityKPI } from './ephemeris/report.ts'
-import {
-  AWS_BASE_URL,
-  FALLBACK_AWS_SITE_METRICS,
-  fetchAwsTelemetry,
-  fetchSiteHorizons,
-  useClientFps,
-  type AwsHorizonRow,
-  type AwsTelemetryState,
-} from './ephemeris/awsApi.ts'
+import { AWS_BASE_URL, fetchSiteHorizons, type AwsHorizonRow } from './ephemeris/awsApi.ts'
 import { ElevationChart } from './components/ElevationChart.tsx'
 import {
   LocalHorizonAndSkyRow,
@@ -27,9 +19,7 @@ import {
   type AuthUser,
   type ValidationSummary,
 } from './ephemeris/authApi.ts'
-import { OryBotAssistant } from './components/OryBotAssistant.tsx'
 import { RocketVectorPlayground } from './components/RocketVectorPlayground.tsx'
-import { ArchitectureDefensePanel } from './components/ArchitectureDefensePanel.tsx'
 
 type MainTab = 'catalog' | 'sheet' | 'navigator' | 'compare' | 'about'
 type Lang = 'es' | 'en'
@@ -41,6 +31,76 @@ interface LoadedSiteData {
   meta: Site
   report: SiteReport
 }
+
+/** Open NASA sources shown in "About the data". */
+const ABOUT_SOURCES = [
+  {
+    name: 'NASA NAIF · SPICE Toolkit and DE440 ephemerides',
+    label: 'naif.jpl.nasa.gov',
+    url: 'https://naif.jpl.nasa.gov/naif/',
+    es: 'Las posiciones del Sol, la Tierra y la Luna, y la orientación de la Luna. Son los mismos archivos que usa la NASA para planear y navegar sus misiones, y se descargan gratis.',
+    en: 'Positions of the Sun, Earth and Moon, and the orientation of the Moon. The same files NASA uses to plan and navigate its missions, free to download.',
+  },
+  {
+    name: 'NASA JPL · Horizons System',
+    label: 'ssd.jpl.nasa.gov/horizons',
+    url: 'https://ssd.jpl.nasa.gov/horizons/',
+    es: 'Servicio público de efemérides del Laboratorio de Propulsión a Chorro de la NASA. Lo usamos como referencia independiente para comprobar cada cálculo.',
+    en: "Public ephemeris service of NASA's Jet Propulsion Laboratory. We use it as an independent reference to check every calculation.",
+  },
+  {
+    name: 'NASA LRO · Lunar Reconnaissance Orbiter Camera (LROC)',
+    label: 'science.nasa.gov/mission/lro',
+    url: 'https://science.nasa.gov/mission/lro/',
+    es: 'Coordenadas de los sitios de alunizaje de IM-2 y del Apolo 11, medidas con imágenes de la sonda LRO de la NASA.',
+    en: "Coordinates of the IM-2 and Apollo 11 landing sites, measured with images from NASA's LRO spacecraft.",
+  },
+  {
+    name: 'IAU/USGS · Gazetteer of Planetary Nomenclature',
+    label: 'planetarynames.wr.usgs.gov',
+    url: 'https://planetarynames.wr.usgs.gov/',
+    es: 'Nombres y coordenadas oficiales de Shackleton y Reiner Gamma, publicados por el Servicio Geológico de Estados Unidos con apoyo de la NASA.',
+    en: 'Official names and coordinates of Shackleton and Reiner Gamma, published by the U.S. Geological Survey with NASA support.',
+  },
+]
+
+const ABOUT_REASONS_ES = [
+  {
+    title: 'Son los datos oficiales de la NASA.',
+    text: 'Las efemérides DE440 son las que usa la NASA para navegar sus naves. No las inventamos ni las ajustamos: las leemos tal como las publica la NASA.',
+  },
+  {
+    title: 'Están comprobados de forma independiente.',
+    text: 'Comparamos cada hora del mes, en los sitios del catálogo, la posición del Sol y de la Tierra contra JPL Horizons de la NASA. La diferencia más grande es menor a una diezmilésima de grado.',
+  },
+  {
+    title: 'Cualquiera puede repetir el cálculo.',
+    text: 'Los archivos de la NASA son gratuitos y públicos. Antes de usarlos verificamos su huella digital (SHA-256), así sabemos que son exactamente los originales.',
+  },
+  {
+    title: 'Cada número dice de dónde viene.',
+    text: 'Lo calculado con datos de la NASA lleva la etiqueta "SPICE DE440". Lo que es un supuesto de nuestro modelo, como el horizonte de Shackleton, está marcado como supuesto.',
+  },
+]
+
+const ABOUT_REASONS_EN = [
+  {
+    title: "It is NASA's official data.",
+    text: 'The DE440 ephemerides are what NASA uses to navigate its spacecraft. We do not invent or tune them: we read them exactly as NASA publishes them.',
+  },
+  {
+    title: 'It is independently checked.',
+    text: "For every hour of the month at the catalog sites, we compare the Sun and Earth positions with NASA's JPL Horizons. The largest difference is under one ten-thousandth of a degree.",
+  },
+  {
+    title: 'Anyone can repeat the calculation.',
+    text: "NASA's files are free and public. Before using them we verify their fingerprint (SHA-256), so we know they are exactly the originals.",
+  },
+  {
+    title: 'Every number says where it comes from.',
+    text: 'Values computed from NASA data are tagged "SPICE DE440". Anything that is an assumption of our model, like the Shackleton horizon, is labelled as an assumption.',
+  },
+]
 
 /** Id of the point computed from "Coordenadas personalizadas". */
 const CUSTOM_SITE_ID = 'custom'
@@ -125,7 +185,6 @@ export function App({ user, onSignOut }: AppProps) {
 
   // Modals & sub-tabs
   const [accountMenuOpen, setAccountMenuOpen] = useState<boolean>(false)
-  const [showArchModal, setShowArchModal] = useState<boolean>(false)
   const [sheetBottomTab, setSheetBottomTab] = useState<'aws' | 'events'>('aws')
 
   // Close the account menu on Escape or a click outside it
@@ -145,19 +204,6 @@ export function App({ user, onSignOut }: AppProps) {
     }
   }, [accountMenuOpen])
 
-  // Live Client FPS & AWS EC2 Telemetry
-  const clientFps = useClientFps()
-  const [awsTelemetry, setAwsTelemetry] = useState<AwsTelemetryState>({
-    online: false,
-    pingRttMs: null,
-    awsRegion: 'us-east-1',
-    engine: 'PostgreSQL 16 + FastAPI',
-    dbQueryMs: 16.79,
-    horizonsRecords: 5768,
-    sourceLabel: 'Sincronizando AWS EC2...',
-    siteMetrics: FALLBACK_AWS_SITE_METRICS,
-    lastCheckedUtc: '2026-11-14T00:00:00Z',
-  })
   const [awsRows, setAwsRows] = useState<AwsHorizonRow[]>([])
   const [awsRowsSource, setAwsRowsSource] = useState<'aws-live' | 'local-fallback'>(
     'local-fallback',
@@ -198,22 +244,6 @@ export function App({ user, onSignOut }: AppProps) {
       })
     return () => {
       cancelled = true
-    }
-  }, [])
-
-  // Poll AWS EC2 telemetry (/api/ping + /api/sites)
-  useEffect(() => {
-    let cancelled = false
-    const poll = () => {
-      fetchAwsTelemetry().then((state) => {
-        if (!cancelled) setAwsTelemetry(state)
-      })
-    }
-    poll()
-    const timer = window.setInterval(poll, 15000)
-    return () => {
-      cancelled = true
-      window.clearInterval(timer)
     }
   }, [])
 
@@ -665,17 +695,6 @@ export function App({ user, onSignOut }: AppProps) {
 
   return (
     <div className="md-app">
-      {showArchModal && report && kpi && activeSample && (
-        <ArchitectureDefensePanel
-          site={report.site}
-          viability={kpi}
-          activeSample={activeSample}
-          awsTelemetry={awsTelemetry}
-          clientFps={clientFps}
-          onClose={() => setShowArchModal(false)}
-        />
-      )}
-
       {/* =====================================================================
           10 / TOP BAR (Exact match to Cambios a realizar.png — NO Model Status)
          ===================================================================== */}
@@ -3002,156 +3021,73 @@ export function App({ user, onSignOut }: AppProps) {
           <header className="md-page-header">
             <div>
               <p className="md-eyebrow">
-                {lang === 'es' ? 'METODOLOGÍA Y FUENTES' : 'METHODS & SOURCES'}
+                {lang === 'es' ? 'FUENTES Y CONFIABILIDAD' : 'SOURCES AND RELIABILITY'}
               </p>
               <h1 className="md-display-title">
                 {lang === 'es' ? 'Acerca de los datos' : 'About the data'}
               </h1>
               <p className="md-subtitle">
                 {lang === 'es'
-                  ? 'Cada número tiene una etiqueta de origen: Efemérides (SPICE DE440 / AWS JPL Horizons), Entrada del modelo o Estimación del modelo.'
-                  : 'Every number has a source tag: Ephemeris (SPICE DE440 / AWS JPL Horizons), Model input, or Team model estimate.'}
+                  ? 'Todos los datos vienen de fuentes abiertas de la NASA, gratuitas y disponibles para cualquiera. Aquí explicamos de dónde salen y por qué puedes confiar en ellos.'
+                  : 'All data comes from open NASA sources, free and available to anyone. Here is where it comes from and why you can trust it.'}
               </p>
-            </div>
-            <div className="md-page-header-right">
-              <button
-                type="button"
-                className="md-btn primary"
-                onClick={() => setShowArchModal(true)}
-              >
-                {lang === 'es'
-                  ? 'Abrir Consola API AWS & Snippet →'
-                  : 'Open AWS API Console & Snippet →'}
-              </button>
             </div>
           </header>
 
           <div className="md-about-stack">
-            {/* Block 1: PRIMARY REFERENCES · NASA sources */}
             <section className="md-panel">
               <div className="md-panel-header-row">
                 <div>
                   <span className="md-eyebrow">
-                    {lang === 'es' ? 'REFERENCIAS PRIMARIAS' : 'PRIMARY REFERENCES'}
+                    {lang === 'es' ? 'DATOS ABIERTOS DE LA NASA' : 'OPEN NASA DATA'}
                   </span>
                   <h2 className="md-h2">
-                    {lang === 'es' ? 'Fuentes oficiales de la NASA' : 'NASA sources'}
+                    {lang === 'es' ? 'De dónde vienen los datos' : 'Where the data comes from'}
                   </h2>
                 </div>
-                <span className="md-tag-pill">NAIF · JPL · LRO</span>
               </div>
-
-              <div className="md-about-sources-list">
-                <div className="md-about-source-row">
-                  <div>
-                    <strong>NASA NAIF — SPICE Toolkit &amp; Generic Kernels</strong>
-                    <p className="md-caption">
-                      <code>de440s.bsp</code>, <code>moon_pa_de440_200625.bpc</code>,{' '}
-                      <code>moon_de440_250416.tf</code>, <code>naif0012.tls</code>,{' '}
-                      <code>pck00011.tpc</code>
-                    </p>
+              <div className="md-about-sources">
+                {ABOUT_SOURCES.map((src) => (
+                  <div key={src.url} className="md-about-source-row">
+                    <div>
+                      <strong>{src.name}</strong>
+                      <p className="md-caption">{lang === 'es' ? src.es : src.en}</p>
+                    </div>
+                    <a href={src.url} target="_blank" rel="noreferrer" className="md-link-btn">
+                      {src.label} ↗
+                    </a>
                   </div>
-                  <a
-                    href="https://naif.jpl.nasa.gov/pub/naif/generic_kernels/"
-                    target="_blank"
-                    rel="noreferrer"
-                    className="md-link-btn"
-                  >
-                    naif.jpl.nasa.gov ↗
-                  </a>
-                </div>
-
-                <div className="md-about-source-row">
-                  <div>
-                    <strong>NASA JPL — Solar System Dynamics Horizons System</strong>
-                    <p className="md-caption">
-                      {lang === 'es'
-                        ? 'Validación cruzada independiente de acimut y elevación topocéntrica sincronizada en AWS EC2 PostgreSQL 16.'
-                        : 'Independent topocentric azimuth/elevation cross-check synchronized in AWS EC2 PostgreSQL 16.'}
-                    </p>
-                  </div>
-                  <a
-                    href="https://ssd.jpl.nasa.gov/horizons/"
-                    target="_blank"
-                    rel="noreferrer"
-                    className="md-link-btn"
-                  >
-                    ssd.jpl.nasa.gov ↗
-                  </a>
-                </div>
-
-                <div className="md-about-source-row">
-                  <div>
-                    <strong>LRO LOLA — Lunar Orbiter Laser Altimeter GDR</strong>
-                    <p className="md-caption">
-                      {lang === 'es'
-                        ? 'Siguiente paso: perfiles de horizonte medidos con LOLA. Hoy los sitios usan horizonte liso y el de Shackleton es un supuesto, marcado como tal.'
-                        : 'Next step: horizon profiles measured with LOLA. Today the sites use a smooth horizon and the Shackleton one is an assumption, labelled as such.'}
-                    </p>
-                  </div>
-                  <a
-                    href="https://imbrium.mit.edu/"
-                    target="_blank"
-                    rel="noreferrer"
-                    className="md-link-btn"
-                  >
-                    imbrium.mit.edu ↗
-                  </a>
-                </div>
+                ))}
               </div>
             </section>
 
-            {/* Block 2: COMPUTATION ENGINE · SPICE (NASA/NAIF) with DE440 */}
             <section className="md-panel">
               <div className="md-panel-header-row">
                 <div>
                   <span className="md-eyebrow">
-                    {lang === 'es' ? 'MOTOR DE CÓMPUTO' : 'COMPUTATION ENGINE'}
+                    {lang === 'es' ? 'POR QUÉ SON CONFIABLES' : 'WHY THEY ARE RELIABLE'}
                   </span>
                   <h2 className="md-h2">
                     {lang === 'es'
-                      ? 'SPICE (NASA/NAIF) con efemérides DE440'
-                      : 'SPICE (NASA/NAIF) with DE440'}
+                      ? 'Datos oficiales, comprobados y repetibles'
+                      : 'Official, checked and repeatable'}
                   </h2>
                 </div>
-                <span className="md-tag-pill">MOON_ME (LT+S)</span>
               </div>
-              <p className="md-caption">
-                {lang === 'es'
-                  ? 'Calculamos vectores de estado topocéntricos horarios en el marco lunar de eje medio MOON_ME con corrección de tiempo-luz y aberración estelar (LT+S), radio ecuatorial lunar de 1737.4 km y detección de cruces de horizonte por bisección al segundo.'
-                  : 'We compute hourly topocentric state vectors in the MOON_ME mean-axis lunar frame with light-time and stellar aberration correction (LT+S), a 1737.4 km lunar reference radius, and second-level bisection root-finding for horizon crossings.'}
-              </p>
-            </section>
-
-            {/* Block 3: INDEPENDENT CHECK · Check against JPL Horizons + Live AWS EC2 */}
-            <section className="md-panel">
-              <div className="md-panel-header-row">
-                <div>
-                  <span className="md-eyebrow">
-                    {lang === 'es' ? 'VERIFICACIÓN INDEPENDIENTE' : 'INDEPENDENT CHECK'}
-                  </span>
-                  <h2 className="md-h2">
-                    {lang === 'es'
-                      ? 'Comprobación contra JPL Horizons en AWS EC2 PostgreSQL'
-                      : 'Check against JPL Horizons on AWS EC2 PostgreSQL'}
-                  </h2>
-                </div>
-                <span className="md-tag-pill">
-                  {awsTelemetry.horizonsRecords.toLocaleString()}{' '}
-                  {lang === 'es' ? 'registros en AWS' : 'rows on AWS'}
-                </span>
-              </div>
-              <p className="md-caption">
-                {lang === 'es'
-                  ? `Comparamos cada hora del mes, en los ${SITES.length} sitios del catálogo, la posición del Sol y de la Tierra calculada con nuestro motor SPICE contra la que da NASA/JPL Horizons. Los registros de Horizons también se guardan en PostgreSQL en ${AWS_BASE_URL}.`
-                  : `For every hour of the month at the ${SITES.length} catalog sites, we compare the Sun and Earth positions from our SPICE engine with those from NASA/JPL Horizons. The Horizons records are also stored in PostgreSQL at ${AWS_BASE_URL}.`}
-              </p>
+              <ol className="md-about-reasons">
+                {(lang === 'es' ? ABOUT_REASONS_ES : ABOUT_REASONS_EN).map((r) => (
+                  <li key={r.title}>
+                    <strong>{r.title}</strong>
+                    <p className="md-caption">{r.text}</p>
+                  </li>
+                ))}
+              </ol>
               <div className="md-about-metrics-strip">
                 <div>
                   <span className="md-label">
                     {lang === 'es'
-                      ? 'DIFERENCIA MÁXIMA EN ELEVACIÓN'
-                      : 'LARGEST ELEVATION DIFFERENCE'}
+                      ? 'DIFERENCIA MÁXIMA CON HORIZONS'
+                      : 'LARGEST DIFFERENCE VS HORIZONS'}
                   </span>
                   <strong>{validation ? `${validation.max_el_diff_deg.toFixed(6)}°` : '—'}</strong>
                 </div>
@@ -3161,75 +3097,22 @@ export function App({ user, onSignOut }: AppProps) {
                   </span>
                   <strong>
                     {validation
-                      ? `${validation.comparisons.toLocaleString(lang === 'es' ? 'es-MX' : 'en-US')}`
+                      ? validation.comparisons.toLocaleString(lang === 'es' ? 'es-MX' : 'en-US')
                       : '—'}
                   </strong>
                 </div>
                 <div>
-                  <span className="md-label">
-                    {lang === 'es' ? 'CONSULTA AWS POSTGRESQL' : 'AWS POSTGRESQL QUERY'}
-                  </span>
-                  <strong>{awsTelemetry.dbQueryMs.toFixed(2)} ms</strong>
+                  <span className="md-label">{lang === 'es' ? 'SITIOS' : 'SITES'}</span>
+                  <strong>{SITES.length}</strong>
                 </div>
                 <div>
-                  <span className="md-label">
-                    {lang === 'es' ? 'DOCUMENTACIÓN SWAGGER' : 'SWAGGER DOCS'}
-                  </span>
-                  <a href={`${AWS_BASE_URL}/docs`} target="_blank" rel="noreferrer">
-                    {AWS_BASE_URL}/docs ↗
-                  </a>
+                  <span className="md-label">{lang === 'es' ? 'PERIODO' : 'PERIOD'}</span>
+                  <strong>{lang === 'es' ? '30 días, cada hora' : '30 days, hourly'}</strong>
                 </div>
               </div>
-            </section>
-
-            {/* Block 4: DISCLOSURE · How we used AI & Academic Advisory */}
-            <section className="md-panel">
-              <div className="md-panel-header-row">
-                <div>
-                  <span className="md-eyebrow">
-                    {lang === 'es'
-                      ? 'TRANSPARENCIA Y COMITÉ ACADÉMICO'
-                      : 'DISCLOSURE & ACADEMIC ADVISORY'}
-                  </span>
-                  <h2 className="md-h2">
-                    {lang === 'es'
-                      ? 'Validación académica y uso responsable de herramientas'
-                      : 'Academic validation & how we used AI'}
-                  </h2>
-                </div>
-                <span className="md-tag-pill">Universidad Politécnica</span>
-              </div>
-              <p className="md-caption">
-                {lang === 'es'
-                  ? 'Todos los cálculos orbitales provienen determinísticamente de kernels SPICE DE440 de NASA/NAIF y consultas reales a JPL Horizons en AWS PostgreSQL. Respaldado por el comité asesor de la Universidad Politécnica: Dr. Horacio (Kernel y Programación), Prof. Jorge y Dr. Manuel Martínez (Telemetría), Dr. Mendoza y Dr. Montero (Física Teórica y Probabilidad).'
-                  : 'All orbital calculations come deterministically from official NASA/NAIF SPICE DE440 kernels and live JPL Horizons queries in AWS PostgreSQL. Backed by the Universidad Politécnica advisory board: Dr. Horacio (Kernel & Software), Prof. Jorge & Dr. Manuel Martínez (Telemetry), Dr. Mendoza & Dr. Montero (Theoretical Physics & Probability).'}
-              </p>
             </section>
           </div>
         </main>
-      )}
-
-      {/* =====================================================================
-          FLOATING ORY-BOT ASSISTANT (Bottom-right collapsible widget)
-         ===================================================================== */}
-      {report && kpi && activeSample && (
-        <OryBotAssistant
-          site={report.site}
-          viability={kpi}
-          profile={profileMode}
-          activeSample={activeSample}
-          userName={user.name.split(' ')[0]}
-          otherSites={Object.values(allSitesData)
-            .filter((d) => d.report.site.id !== report.site.id && d.report.viability)
-            .map((d) => ({
-              id: d.report.site.id,
-              name: d.report.site.name,
-              score: d.report.viability!.scorePct,
-              verdict: d.report.viability!.verdict,
-            }))}
-          onSelectSiteId={(id: string) => setSiteId(id)}
-          lang={lang}
-        />
       )}
     </div>
   )

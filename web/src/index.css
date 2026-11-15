@@ -4198,3 +4198,32 @@ body {
   font-size: 13.5px;
   color: var(--text-primary);
 }
+
+/* About the data: open NASA sources and reasons to trust them */
+.md-about-sources {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.md-about-reasons {
+  margin: 0 0 18px;
+  padding-left: 22px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.md-about-reasons li::marker {
+  color: var(--earth-soft);
+  font-weight: 600;
+}
+
+.md-about-reasons strong {
+  color: #ffffff;
+}
+
+.md-about-reasons .md-caption {
+  margin: 2px 0 0;
+  max-width: 80ch;
+}
