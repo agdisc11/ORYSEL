@@ -1,0 +1,169 @@
+ORYSEL · LUNAR LANDING SITE NAVIGATOR
+Guion de presentación · 2 minutos · 2 personas
+Basado en: ORYSEL-Pitch-7-Slides-EN-v3.pptx (7 diapositivas)
+
+PERSONA A: abre, explica el problema y cierra.
+PERSONA B: explica la solución, la tecnología y el caso en vivo.
+
+Ritmo: unas 270 palabras en inglés, a unas 140 palabras por minuto.
+Los tiempos son aproximados. Debajo de cada línea en inglés va la traducción
+para ensayar (no se dice en voz alta).
+
+======================================================================
+DIAPOSITIVA 1 · ORYSEL                                   0:00 – 0:12
+======================================================================
+
+A: Hi, we are ORYSEL, from Tuxtla Gutiérrez. We help mission planners
+   choose lunar landing sites with sunlight for power and a direct
+   radio link to Earth, using open NASA data.
+
+   (Somos ORYSEL, de Tuxtla Gutiérrez. Ayudamos a planear misiones a
+   elegir sitios de alunizaje con luz solar para la energía y radio
+   directa con la Tierra, usando datos abiertos de la NASA.)
+
+======================================================================
+DIAPOSITIVA 2 · PROBLEMA Y USUARIO                       0:12 – 0:30
+======================================================================
+
+A: Near the lunar south pole the Sun barely rises, so a few degrees
+   of crater wall can cut a lander's power or its link to Earth. Our
+   users are mission planners, teachers and students, who today jump
+   between QuickMap, Moon Trek and JPL Horizons.
+
+   (Cerca del polo sur lunar el Sol apenas sube, así que unos pocos
+   grados de pared de cráter pueden dejar al módulo sin energía o sin
+   enlace con la Tierra. Nuestros usuarios son quienes planean misiones,
+   maestros y estudiantes, que hoy saltan entre QuickMap, Moon Trek y
+   JPL Horizons.)
+
+======================================================================
+DIAPOSITIVA 3 · NUESTRA SOLUCIÓN                         0:30 – 0:48
+======================================================================
+
+B: ORYSEL puts it all in one place. You sign in, pick a site from a
+   catalog where every coordinate has its source, and choose your view:
+   professional, educational, or kids, with a simple yes-or-no answer
+   and a rocket simulator.
+
+   (ORYSEL lo junta todo. Inicias sesión, eliges un sitio de un catálogo
+   donde cada coordenada tiene su fuente y escoges tu vista: profesional,
+   educativa o para niños, con una respuesta de sí o no y un simulador
+   de cohete.)
+
+======================================================================
+DIAPOSITIVA 4 · LA CONTRIBUCIÓN ESPACIAL                 0:48 – 1:08
+======================================================================
+
+B: Under the hood we run NASA's SPICE toolkit with the DE440
+   ephemerides, the same data NASA uses to navigate spacecraft. Every
+   hour we compute where the Sun and Earth are in the site's sky,
+   timing each sunrise and earthrise to the second. That gives power
+   windows, communication windows and a GO or NO-GO.
+
+   (Por dentro usamos SPICE de la NASA con las efemérides DE440, los
+   mismos datos con los que la NASA navega sus naves. Cada hora
+   calculamos dónde están el Sol y la Tierra en el cielo del sitio, y
+   medimos cada salida al segundo. Eso da ventanas de energía, de
+   comunicación y un veredicto GO o NO-GO.)
+
+======================================================================
+DIAPOSITIVA 5 · DEMO DEL PROTOTIPO                       1:08 – 1:33
+======================================================================
+
+B: IM-2 at Mons Mouton scores 85, GO: sunlight 59 percent of the
+   month, Earth 73. Reiner Gamma scores 96: Earth never sets.
+   Shackleton is our test case: assuming crater walls of 10 to 12
+   degrees, it drops to 18, NO-GO, a blind spot. You can also type any
+   coordinates and get a new site in two seconds.
+
+   (IM-2 en Mons Mouton saca 85, GO: luz el 59 % del mes y Tierra el
+   73 %. Reiner Gamma saca 96: la Tierra nunca se oculta. Shackleton es
+   nuestro caso de prueba: suponiendo paredes de 10 a 12 grados, baja a
+   18, NO-GO, un punto ciego. También puedes escribir cualquier
+   coordenada y tener un sitio nuevo en dos segundos.)
+
+======================================================================
+DIAPOSITIVA 6 · EVIDENCIA E IMPACTO                      1:33 – 1:50
+======================================================================
+
+A: Can you trust it? We checked every hour against NASA JPL Horizons:
+   the largest difference is under 0.00003 degrees. Our limits: terrain
+   is still smooth or assumed, and environment factors are estimates.
+
+   (¿Se puede confiar? Comparamos cada hora contra JPL Horizons de la
+   NASA: la diferencia más grande es menor a 0.00003 grados. Nuestros
+   límites: el relieve todavía es liso o supuesto, y los factores de
+   ambiente son estimaciones.)
+
+======================================================================
+DIAPOSITIVA 7 · CIERRE Y SIGUIENTE PASO                  1:50 – 2:00
+======================================================================
+
+A: Next, we will add real terrain from NASA's LOLA laser altimeter.
+
+   (Lo siguiente es agregar el relieve real del altímetro láser LOLA de
+   la NASA.)
+
+B: ORYSEL: land where you can see the Sun, and call home. Thank you!
+
+   (ORYSEL: aterriza donde puedas ver el Sol y llamar a casa. ¡Gracias!)
+
+======================================================================
+CÓMO DECIR LOS NÚMEROS
+======================================================================
+
+- 0.00003 degrees  → "zero point zero zero zero zero three degrees"
+                     o más corto: "less than a ten-thousandth of a degree"
+- DE440            → "D-E four forty"
+- 59 / 73 percent  → "fifty-nine percent" / "seventy-three percent"
+- SPICE            → se pronuncia como la palabra "spice"
+
+======================================================================
+DIAPOSITIVAS QUE CONVIENE CORREGIR ANTES DE PRESENTAR
+(la app cambió después de hacer el PPTX)
+======================================================================
+
+1. Diapositiva 3 · "Register a type of user": al registrarse ya no se
+   elige el perfil; el perfil (vista) se cambia dentro de la app con
+   los botones Specialist / General / Educator / Kids.
+
+2. Diapositiva 4 · "LOLA elevation": todavía no se usa el relieve LOLA;
+   es el siguiente paso. Pasar "LOLA" a la diapositiva 7.
+   "Optimal descent azimuth": se quitó de la app porque no tenía base
+   física. Conviene borrarlo.
+
+3. Diapositiva 5 · "ORY-Bot diagnosis": el asistente se quitó de la app.
+   "28 nT magnetic anomaly": es un supuesto del modelo, no una medición.
+   Para Shackleton conviene escribir "assumed 10–12° wall"
+   (pared supuesta).
+
+4. Diapositiva 6 · Los números de evidencia cambiaron:
+   "721 hourly samples (1 month at IM-2)" → "5,768 comparisons
+   (4 sites, every hour for 30 days)".
+   "1,442 real records in AWS database" → "5,768".
+   "< 0.00003°" sigue siendo correcto (máximo medido: 0.000027°).
+   "Open APIs on AWS": la API ahora pide cuenta; mejor
+   "API with accounts on AWS".
+   "Topographic horizon uses precomputed per-site profiles": hoy el
+   horizonte es liso, salvo el de Shackleton, que es supuesto.
+
+5. Diapositiva 2 · "The sun can cause interference with communications
+   or power": la idea más precisa es "A low Sun means long shadows:
+   few degrees of terrain can cut power or the link to Earth".
+
+6. Diapositiva 7 · La app ya no muestra el comité académico. Si lo
+   mantienen en la diapositiva, que sea porque esas personas sí los
+   asesoraron.
+
+======================================================================
+SI LOS JUECES PREGUNTAN
+======================================================================
+
+- ¿Shackleton es real? El sitio sí (coordenadas del catálogo oficial
+  IAU/USGS); su horizonte es supuesto para mostrar el filtro.
+- ¿La puntuación es de la NASA? No: es un modelo del equipo. Lo medido
+  son los ángulos del Sol y la Tierra (SPICE DE440).
+- ¿SpaceEngine? Solo se usó al principio para revisar visualmente; no
+  es parte del producto.
+- ¿IA? Usamos un asistente de IA (Claude) para programar y redactar,
+  bajo dirección del equipo. Está declarado en la página del proyecto.
