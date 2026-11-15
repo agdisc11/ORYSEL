@@ -155,7 +155,21 @@ export function App({ user, onSignOut }: AppProps) {
   const [compareIds, setCompareIds] = useState<string[]>(['im2', 'reiner-gamma'])
   const [compareSlot, setCompareSlot] = useState<CompareSlot>('A')
   const [activeTab, setActiveTab] = useState<MainTab>('catalog')
-  const [lang, setLang] = useState<Lang>('es')
+  // The chosen language is remembered, so the sign-in screen uses it too (AuthGate)
+  const [lang, setLang] = useState<Lang>(() => {
+    try {
+      return localStorage.getItem('orysel.lang') === 'en' ? 'en' : 'es'
+    } catch {
+      return 'es'
+    }
+  })
+  useEffect(() => {
+    try {
+      localStorage.setItem('orysel.lang', lang)
+    } catch {
+      // storage unavailable: the choice lasts for this visit only
+    }
+  }, [lang])
   const langRef = useRef<Lang>(lang)
   langRef.current = lang
   const sites = useMemo(() => SITES.map((s) => localizeSite(s, lang)), [lang])

@@ -1115,16 +1115,18 @@ export function ThreeMoonsComparisonSection({
       <div className="md-compare-dates-card">
         <div className="md-dual-moon-head">
           <div className="md-dual-moon-title">
-            <strong>{lang === 'es' ? 'Comparar fechas' : 'Compare dates'}</strong>
+            <strong>
+              {lang === 'es' ? 'Luz solar con el retraso' : 'Sunlight with the delay'}
+            </strong>
           </div>
           <span className="md-meta-label">
-            {lang === 'es' ? 'VENTANA BASE VS. PROPUESTA' : 'BASE VS. PROPOSED WINDOW'}
+            {lang === 'es' ? `DESDE EL DÍA +${delayDays}` : `FROM DAY +${delayDays}`}
           </span>
         </div>
 
         <div className="md-dual-bars">
           <div className="md-dual-bar-row">
-            <span className="md-dual-bar-label">{lang === 'es' ? 'Luz solar' : 'Sunlight'}</span>
+            <span className="md-dual-bar-label">A · {shortSiteLabel(siteA.site.name)}</span>
             <div className="md-dual-bar-track">
               <div
                 className="md-dual-bar-fill purple"
@@ -1135,9 +1137,7 @@ export function ThreeMoonsComparisonSection({
           </div>
 
           <div className="md-dual-bar-row">
-            <span className="md-dual-bar-label">
-              {lang === 'es' ? 'Enlace Tierra' : 'Earth link'}
-            </span>
+            <span className="md-dual-bar-label">B · {shortSiteLabel(siteB.site.name)}</span>
             <div className="md-dual-bar-track">
               <div
                 className="md-dual-bar-fill amber"
@@ -1149,7 +1149,7 @@ export function ThreeMoonsComparisonSection({
 
           <div className="md-dual-bar-row">
             <span className="md-dual-bar-label teal-label">
-              {siteC ? shortSiteLabel(siteC.site.name) : lang === 'es' ? 'Sitio C' : 'Site C'}
+              C · {siteC ? shortSiteLabel(siteC.site.name) : lang === 'es' ? 'vacío' : 'empty'}
             </span>
             <div className="md-dual-bar-track teal-track">
               {statsC && (

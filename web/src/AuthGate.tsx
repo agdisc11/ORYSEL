@@ -10,10 +10,18 @@ import {
 
 type Lang = 'es' | 'en'
 
-const browserLang = (): Lang =>
-  typeof navigator !== 'undefined' && navigator.language.toLowerCase().startsWith('en')
+/** Language last chosen in the app, else the browser's. */
+const browserLang = (): Lang => {
+  try {
+    const saved = localStorage.getItem('orysel.lang')
+    if (saved === 'es' || saved === 'en') return saved
+  } catch {
+    // no storage: fall back to the browser language
+  }
+  return typeof navigator !== 'undefined' && navigator.language.toLowerCase().startsWith('en')
     ? 'en'
     : 'es'
+}
 
 const EXPIRED_NOTICE: Record<Lang, string> = {
   es: 'Tu sesión terminó. Vuelve a iniciar sesión para seguir.',
@@ -25,7 +33,7 @@ const EXPIRED_NOTICE: Record<Lang, string> = {
  * (and no data is requested) until the server confirms the session.
  */
 export function AuthGate() {
-  const [lang] = useState<Lang>(browserLang)
+  const lang = browserLang() // re-read on every render: sign-out shows the language last chosen in the app
   const [user, setUser] = useState<AuthUser | null>(null)
   const [checking, setChecking] = useState(true)
   const [notice, setNotice] = useState<string | null>(null)
